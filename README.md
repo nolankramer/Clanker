@@ -62,12 +62,11 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 
 ## Install
 
-### Don't have any hardware yet?
-
-See the **[Hardware Guide](docs/hardware.md)** for specific product
-recommendations at every budget ($85 / $130 / $175) with links to buy.
-
 ### Pre-built OS Image (easiest — no Linux experience needed)
+
+> See the **[Hardware Guide](docs/hardware.md)** for reference
+> configurations if you need to pick hardware. (Still untested —
+> contributions welcome.)
 
 1. Download the image for your hardware from [Releases](https://github.com/nolankramer/clanker/releases):
    - `clanker-x86_64-*.img.gz` for Intel mini PCs

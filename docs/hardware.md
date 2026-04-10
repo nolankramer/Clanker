@@ -1,28 +1,23 @@
 # Hardware Guide
 
-Buy the hardware, flash the image, done. No Linux experience needed.
+> **Status: untested.** These are reference configurations based on community
+> experience with Home Assistant and Ollama. We haven't verified every
+> combination yet. If you test one, please open an issue with your results.
 
 ## Recommended Configurations
 
-### Budget: Voice-Only ($85)
+### Budget: Voice-Only (~$85)
 
 Best for: voice control + cloud LLM. No local AI or cameras.
 
-| Item | ~Price | Notes |
-|------|--------|-------|
-| Raspberry Pi 5 (4GB) | $60 | [raspberrypi.com](https://www.raspberrypi.com/products/raspberry-pi-5/) |
-| Official Pi 5 power supply (27W USB-C) | $12 | Must be 5V/5A — don't use a phone charger |
-| microSD card (32GB+) | $8 | Samsung EVO or SanDisk Extreme |
-| Ethernet cable | $5 | WiFi works but wired is more reliable |
+- Raspberry Pi 5 (4GB) + official 27W USB-C power supply
+- microSD card (32GB+, A2 rated)
+- Ethernet cable (WiFi works but wired is more reliable)
 
 **Voice satellite (one per room, optional):**
-
-| Item | ~Price |
-|------|--------|
-| ESP32-S3-DevKitC-1 (N16R8) | $8 |
-| INMP441 MEMS microphone | $3 |
-| MAX98357A I2S amplifier | $3 |
-| Small speaker (3W, 4-8 ohm) | $3 |
+- ESP32-S3-DevKitC-1 (N16R8)
+- INMP441 I2S MEMS microphone
+- MAX98357A I2S amplifier + small speaker (3W, 4-8 ohm)
 
 > **Limitation:** The Pi 5 4GB can't run local LLMs well. You'll need an
 > Anthropic or OpenAI API key for the brain. TTS (Piper) and STT (Whisper)
@@ -30,48 +25,36 @@ Best for: voice control + cloud LLM. No local AI or cameras.
 
 ---
 
-### Sweet Spot: Fully Local ($130)
+### Sweet Spot: Fully Local (~$130)
 
 Best for: everything running locally. No cloud needed. No camera detection.
 
-| Item | ~Price | Notes |
-|------|--------|-------|
-| Intel N100 mini PC, 16GB RAM, 256GB SSD | $120 | Beelink EQ12, MinisForum UN100D, or GMKtec N100 — any N100 with 16GB works |
-| Ethernet cable | $5 | |
+- Intel N100 mini PC with 16GB RAM, 256GB SSD (Beelink, MinisForum, GMKtec — any N100 with 16GB works)
+- Ethernet cable
 
-Search Amazon for: **"Intel N100 mini PC 16GB"** — pick any with good reviews under $130.
-
-This runs: HA + Ollama (llama3.2 7B) + Piper TTS + Whisper STT + Clanker. Fully offline capable.
+This should run: HA + Ollama (llama3.2 7B) + Piper TTS + Whisper STT + Clanker. Fully offline capable.
 
 ---
 
-### Full Setup: Local AI + Cameras ($175)
+### Full Setup: Local AI + Cameras (~$175)
 
 Best for: everything local PLUS camera-based detection (Frigate).
 
-| Item | ~Price | Notes |
-|------|--------|-------|
-| Intel N100 mini PC, 16GB RAM | $120 | Same as above |
-| Google Coral USB Accelerator | $35 | Real-time object detection for Frigate |
-| USB webcam (any) | $20 | Or use existing IP cameras (Reolink, etc.) |
+- Intel N100 mini PC, 16GB RAM (same as above)
+- Google Coral USB Accelerator — real-time object detection for Frigate
+- USB webcam or existing IP cameras (Reolink, etc.)
 
-The Coral makes Frigate run at full speed with near-zero CPU usage. Without it, Frigate works but is slow on CPU.
-
-> **Coral availability:** The Coral USB Accelerator has periodic stock issues.
-> Check [coral.ai](https://coral.ai/products/accelerator) and Amazon.
-> Frigate works without it (CPU detection) — just slower.
+The Coral makes Frigate run at full speed with near-zero CPU usage. Without it, Frigate works but is slower on CPU.
 
 ---
 
-### Premium: Full House ($250+)
+### Premium: Full House (~$250+)
 
-For the serious setup — dedicated server with GPU potential.
+For the serious setup — dedicated server with more headroom.
 
-| Item | ~Price | Notes |
-|------|--------|-------|
-| Intel N305 mini PC, 16-32GB RAM | $200+ | MinisForum UM773, Beelink SER5 — more headroom for larger models |
-| Google Coral USB Accelerator | $35 | |
-| ESP32-S3 voice satellites (x3) | $50 | One per room |
+- Intel N305 mini PC with 16-32GB RAM (more headroom for larger LLM models)
+- Google Coral USB Accelerator
+- ESP32-S3 voice satellites (one per room)
 
 With 32GB RAM you can run larger Ollama models (13B+) for better reasoning.
 
