@@ -224,8 +224,54 @@ def _step_discovery(answers: dict[str, Any]) -> None:
         answers["push_targets"] = [m["entity_id"] for m in mobile[:2]]
 
 
+def _step_voice(answers: dict[str, Any]) -> None:
+    _header(6, "Voice Pipeline")
+    print(f"  {_DIM}Configure how 'Hey Clanker' voice control works.{_RESET}\n")
+
+    # HA component installation
+    if answers.get("ha_token"):
+        ha_config_dir = _prompt(
+            "HA config directory (for custom component install)",
+            "/config" if _confirm("Is HA running in Docker?", default=True) else "~/homeassistant",
+        )
+        answers["ha_config_dir"] = ha_config_dir
+
+        from clanker.setup.voice import check_voice_addons
+
+        print("  Checking voice add-ons...")
+        addons = check_voice_addons(answers["ha_url"], answers["ha_token"])
+        if addons["whisper"]:
+            print(_ok("Whisper STT detected"))
+        else:
+            print(f"  {_YELLOW}!{_RESET} Whisper not found - install the Whisper add-on")
+        if addons["piper"]:
+            print(_ok("Piper TTS detected"))
+        else:
+            print(f"  {_YELLOW}!{_RESET} Piper not found — install the Piper add-on for local TTS")
+        if addons["openwakeword"]:
+            print(_ok("openWakeWord detected"))
+        else:
+            print(f"  {_YELLOW}!{_RESET} openWakeWord not found - install for wake word")
+
+    # Conversation API
+    answers["conversation_port"] = int(
+        _prompt("Conversation API port", "8472")
+    )
+
+    # TTS
+    if _confirm("Configure TTS (text-to-speech)?", default=True):
+        answers["tts_engine"] = _prompt("TTS engine entity", "tts.piper")
+        answers["tts_voice"] = _prompt("TTS voice (blank for default)", "")
+
+    # Wake word training
+    print(f"\n  {_DIM}To train the 'Hey Clanker' wake word:{_RESET}")
+    print(f"  {_DIM}  pip install openwakeword tensorflow{_RESET}")
+    print(f"  {_DIM}  python -m clanker.setup.wakeword{_RESET}")
+    print(f"  {_DIM}  python -m clanker.setup.wakeword --deploy /share/openwakeword{_RESET}")
+
+
 def _step_save(answers: dict[str, Any]) -> None:
-    _header(6, "Save Configuration")
+    _header(7, "Save Configuration")
     yaml_content = generate_config(answers)
     env_content = generate_env(answers)
 
@@ -290,6 +336,7 @@ def main() -> None:
         _step_routing(answers)
         _step_frigate(answers)
         _step_discovery(answers)
+        _step_voice(answers)
         _step_save(answers)
     except KeyboardInterrupt:
         print(f"\n{_DIM}  Cancelled.{_RESET}")

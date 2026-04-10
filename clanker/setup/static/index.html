@@ -305,6 +305,7 @@
   <div class="step-dot" id="dot-3">4</div>
   <div class="step-dot" id="dot-4">5</div>
   <div class="step-dot" id="dot-5">6</div>
+  <div class="step-dot" id="dot-6">7</div>
 </div>
 
 <!-- Step 0: Home Assistant -->
@@ -486,8 +487,63 @@
   </div>
 </div>
 
-<!-- Step 5: Review & Save -->
+<!-- Step 5: Voice Pipeline -->
 <div class="card" id="step-5">
+  <h2>Voice Pipeline</h2>
+  <p class="desc">Configure how "Hey Clanker" voice control works. Requires HA voice add-ons.</p>
+
+  <div class="provider-section">
+    <h3>Conversation API</h3>
+    <div class="field">
+      <label>Clanker API Port</label>
+      <input id="conv-port" type="number" value="8472">
+    </div>
+  </div>
+
+  <div class="provider-section">
+    <h3>Text-to-Speech</h3>
+    <p class="desc" style="margin-bottom:0.75rem">Install the <strong>Piper</strong> add-on in HA for local TTS, or use HA Cloud.</p>
+    <div class="field">
+      <label>TTS Engine Entity</label>
+      <input id="tts-engine" type="text" value="tts.piper" placeholder="tts.piper">
+    </div>
+    <div class="field">
+      <label>TTS Voice (blank for default)</label>
+      <input id="tts-voice" type="text" placeholder="en_US-lessac-medium">
+    </div>
+  </div>
+
+  <div class="provider-section">
+    <h3>Wake Word &amp; STT</h3>
+    <p class="desc" style="margin-bottom:0.75rem">Install <strong>openWakeWord</strong> and <strong>Whisper</strong> add-ons in HA.</p>
+    <div style="background:var(--surface);border-radius:8px;padding:1rem;font-size:0.85rem;color:var(--text-dim);line-height:1.6">
+      <strong style="color:var(--accent)">Train "Hey Clanker" wake word:</strong><br>
+      <code>pip install openwakeword tensorflow</code><br>
+      <code>python -m clanker.setup.wakeword</code><br>
+      <code>python -m clanker.setup.wakeword --deploy /share/openwakeword</code><br><br>
+      Then restart openWakeWord and select "hey clanker" in your HA voice pipeline.
+    </div>
+  </div>
+
+  <div class="provider-section">
+    <h3>HA Custom Component</h3>
+    <p class="desc" style="margin-bottom:0.75rem">Clanker needs a small component installed in HA to register as a conversation agent.</p>
+    <div class="field">
+      <label>HA Config Directory</label>
+      <input id="ha-config-dir" type="text" value="/config" placeholder="/config or ~/homeassistant">
+    </div>
+    <button class="btn btn-test" onclick="installComponent()">Install Component</button>
+    <div class="status" id="component-status"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 6: Review & Save -->
+<div class="card" id="step-6">
   <h2>Review &amp; Save</h2>
   <p class="desc">Review your configuration before writing files.</p>
 
@@ -516,7 +572,7 @@
 
 <script>
 let currentStep = 0;
-const totalSteps = 6;
+const totalSteps = 7;
 let discoveredEntities = {};
 let discoveredRooms = [];
 
@@ -531,7 +587,7 @@ function showStep(n) {
   }
   // Hooks on entering a step
   if (n === 2) populateRouting();
-  if (n === 5) populateReview();
+  if (n === 6) populateReview();
 }
 
 function next() {
@@ -702,6 +758,17 @@ function renderEntityList(containerId, items) {
   }
 }
 
+// -- Voice pipeline --
+
+async function installComponent() {
+  setStatus('component-status', 'loading', 'Installing...');
+  const r = await api('/api/voice/install-component', {
+    ha_config_dir: document.getElementById('ha-config-dir').value,
+    clanker_url: `http://localhost:${document.getElementById('conv-port').value}`,
+  });
+  setStatus('component-status', r.ok ? 'ok' : 'err', r.message);
+}
+
 // -- Build answers object --
 
 function buildAnswers() {
@@ -743,6 +810,11 @@ function buildAnswers() {
   if (answers.frigate_enabled) {
     answers.frigate_url = document.getElementById('frigate-url').value;
   }
+
+  // Voice pipeline
+  answers.conversation_port = parseInt(document.getElementById('conv-port').value) || 8472;
+  answers.tts_engine = document.getElementById('tts-engine').value;
+  answers.tts_voice = document.getElementById('tts-voice').value;
 
   // Room/speaker mappings from discovery
   if (discoveredRooms.length) {
@@ -814,12 +886,12 @@ async function saveConfig() {
   if (r.ok) {
     document.getElementById('save-result').innerHTML = '';
     // Hide the form elements, show success
-    document.querySelector('#step-5 .btn-row').style.display = 'none';
-    document.querySelectorAll('#step-5 .review-block, #step-5 label.review-label, #step-5 p.desc').forEach(e => e.style.display = 'none');
+    document.querySelector('#step-6 .btn-row').style.display = 'none';
+    document.querySelectorAll('#step-6 .review-block, #step-6 label.review-label, #step-6 p.desc').forEach(e => e.style.display = 'none');
     document.getElementById('success-banner').style.display = 'block';
     // Mark final dot
-    document.getElementById(`dot-5`).classList.remove('active');
-    document.getElementById(`dot-5`).classList.add('done');
+    document.getElementById(`dot-6`).classList.remove('active');
+    document.getElementById(`dot-6`).classList.add('done');
   } else {
     const el = document.getElementById('save-result');
     el.innerHTML = `<div class="status err">${r.message || 'Failed to save'}</div>`;

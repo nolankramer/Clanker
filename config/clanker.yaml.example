@@ -81,6 +81,15 @@ announce:
     - notify.mobile_app_my_phone
   tts_service: tts.speak
 
+# Conversation agent / voice pipeline
+conversation:
+  port: 8472
+  # system_prompt: "Custom system prompt override"
+  session_ttl_seconds: 600
+  tts_engine: "tts.piper"
+  # tts_voice: "en_US-lessac-medium"
+  # stt_engine: "stt.faster_whisper"
+
 # Frigate NVR integration
 frigate:
   enabled: false

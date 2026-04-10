@@ -61,6 +61,7 @@ class _Handler(BaseHTTPRequestHandler):
             "/api/test/ollama": self._handle_test_ollama,
             "/api/test/frigate": self._handle_test_frigate,
             "/api/discover": self._handle_discover,
+            "/api/voice/install-component": self._handle_install_component,
             "/api/config/save": self._handle_save,
         }
         handler = routes.get(self.path)
@@ -99,6 +100,17 @@ class _Handler(BaseHTTPRequestHandler):
         entities = discover_entities(url, token)
         rooms = infer_rooms(entities)
         self._json_response({"entities": entities, "rooms": rooms})
+
+    def _handle_install_component(self, body: dict[str, Any]) -> None:
+        from clanker.setup.voice import add_clanker_to_ha_config, install_ha_component
+
+        ha_dir = body.get("ha_config_dir", "/config")
+        result = install_ha_component(ha_dir)
+        if result["ok"]:
+            clanker_url = body.get("clanker_url", "http://localhost:8472")
+            cfg_result = add_clanker_to_ha_config(ha_dir, clanker_url)
+            result["config_message"] = cfg_result["message"]
+        self._json_response(result)
 
     def _handle_save(self, body: dict[str, Any]) -> None:
         answers = body.get("answers", {})

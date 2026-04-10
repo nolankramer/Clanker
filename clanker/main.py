@@ -1,8 +1,8 @@
 """Clanker entrypoint — wires all modules together and manages lifecycle.
 
-Loads config, initializes subsystems (HA client, memory, brain, MCP server,
-event dispatcher, announcement router, Frigate, VLM), subscribes to HA
-events, and handles graceful shutdown on SIGTERM/SIGINT.
+Loads config, initializes all subsystems, subscribes to HA events,
+starts the conversation API server, proactive scheduler, and handles
+graceful shutdown on SIGTERM/SIGINT.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import structlog
 from clanker.config import TaskType, load_settings
 from clanker.ha.client import HAClient
 from clanker.ha.events import EventDispatcher
+from clanker.ha.services import HAServices
 from clanker.logging import setup_logging
 from clanker.memory.semantic import SemanticMemory
 from clanker.memory.structured import StructuredMemory
@@ -35,7 +36,7 @@ async def run() -> None:
     setup_logging(level=settings.log_level, json_output=settings.log_json)
     logger.info("clanker.starting", version="0.1.1")
 
-    # Initialize memory
+    # ---- Memory ----
     structured_memory = StructuredMemory(settings.memory.db_path)
     await structured_memory.initialize()
 
@@ -49,7 +50,7 @@ async def run() -> None:
 
     memory_tools = MemoryTools(structured=structured_memory, semantic=semantic_memory)
 
-    # Initialize HA client
+    # ---- Home Assistant ----
     ha_client = HAClient(url=settings.ha.url, token=settings.ha.token)
 
     try:
@@ -60,33 +61,34 @@ async def run() -> None:
         await semantic_memory.close()
         sys.exit(1)
 
-    # Initialize brain router
+    ha_services = HAServices(ha_client)
+
+    # ---- Brain Router ----
     from clanker.brain.router import BrainRouter
 
     brain = BrainRouter(settings)
 
-    # Initialize event dispatcher
+    # ---- Event Dispatcher ----
     dispatcher = EventDispatcher()
 
-    # Subscribe to HA events
     try:
         await ha_client.subscribe_events(dispatcher.dispatch, event_type="state_changed")
         logger.info("clanker.subscribed", event_type="state_changed")
     except Exception:
         logger.exception("clanker.subscribe_failed")
 
-    # Initialize announcement router
+    # ---- Announcement Router ----
     from clanker.announce.router import AnnouncementRouter
 
     _announcement_router = AnnouncementRouter(ha_client, settings.announce)
 
-    # Initialize VLM (uses the vision-routed brain provider)
+    # ---- VLM ----
     from clanker.vision.vlm import BrainVLM
 
     vision_provider = brain.for_task(TaskType.VISION)
     vlm = BrainVLM(vision_provider) if vision_provider.supports_vision else None
 
-    # Initialize Frigate event handler (if enabled)
+    # ---- Frigate ----
     from clanker.vision.frigate import FrigateEventHandler
 
     frigate: FrigateEventHandler | None = None
@@ -101,13 +103,11 @@ async def run() -> None:
         await frigate.start()
         logger.info("clanker.frigate_started")
 
-    # Initialize face recognizer
+    # ---- Face Recognizer ----
     from clanker.vision.faces import FaceRecognizer
 
     face_recognizer = FaceRecognizer(
-        ha_client=ha_client,
-        memory=structured_memory,
-        vlm=vlm,
+        ha_client=ha_client, memory=structured_memory, vlm=vlm
     )
     try:
         await face_recognizer.start()
@@ -115,19 +115,66 @@ async def run() -> None:
     except Exception:
         logger.warning("clanker.faces_subscribe_failed", exc_info=True)
 
-    # TODO: Initialize proactive scheduler
-    # from clanker.proactive.scheduler import ProactiveScheduler
-    # scheduler = ProactiveScheduler(...)
-    # await scheduler.start()
+    # ---- Conversation Agent + HTTP Server ----
+    from clanker.conversation.agent import ConversationAgent
+    from clanker.conversation.server import ConversationServer
 
-    # TODO: Start MCP server (in a separate task or process for stdio mode)
-    # The MCP server is available for external brain connections:
-    # from clanker.mcp.server import create_mcp_server
-    # mcp_server = create_mcp_server(ha_client, memory_tools)
+    conversation_brain = brain.for_task(TaskType.CONVERSATION)
+    system_prompt = settings.conversation.system_prompt or None
 
-    logger.info("clanker.ready")
+    conversation_agent = ConversationAgent(
+        brain=conversation_brain,
+        ha_client=ha_client,
+        memory_tools=memory_tools,
+        **({"system_prompt": system_prompt} if system_prompt else {}),
+        session_ttl=settings.conversation.session_ttl_seconds,
+    )
 
-    # Wait for shutdown signal
+    conversation_server = ConversationServer(
+        agent=conversation_agent,
+        host=settings.conversation.host,
+        port=settings.conversation.port,
+    )
+    await conversation_server.start()
+
+    # ---- Proactive Scheduler ----
+    from clanker.proactive.briefing import MorningBriefing
+    from clanker.proactive.scheduler import ProactiveScheduler
+
+    scheduler = ProactiveScheduler()
+
+    briefing = MorningBriefing(
+        brain=brain.for_task(TaskType.SUMMARIZATION),
+        ha_client=ha_client,
+        ha_services=ha_services,
+        config=settings.proactive,
+    )
+
+    # Register briefing motion trigger
+    if settings.proactive.briefing_motion_sensor:
+        dispatcher.register("state_changed", briefing.check_trigger)
+        logger.info(
+            "clanker.briefing_armed",
+            sensor=settings.proactive.briefing_motion_sensor,
+        )
+
+    await scheduler.start()
+
+    # ---- MCP Server (run in background task) ----
+    from clanker.mcp.server import create_mcp_server
+
+    _mcp_server = create_mcp_server(ha_client, memory_tools)
+    # MCP stdio server would block; it's available for external connections
+    # when run separately: python -m clanker.mcp.server
+    logger.info("clanker.mcp_available")
+
+    # ---- Ready ----
+    logger.info(
+        "clanker.ready",
+        conversation_api=f"http://{settings.conversation.host}:{settings.conversation.port}",
+    )
+
+    # ---- Shutdown handling ----
     shutdown_event = asyncio.Event()
 
     def _signal_handler() -> None:
@@ -140,12 +187,11 @@ async def run() -> None:
 
     await shutdown_event.wait()
 
-    # Graceful shutdown
+    # ---- Graceful shutdown ----
     logger.info("clanker.shutting_down")
 
-    # TODO: Stop scheduler
-    # await scheduler.stop()
-
+    await scheduler.stop()
+    await conversation_server.stop()
     if frigate:
         await frigate.close()
     await brain.close()
@@ -158,10 +204,10 @@ async def run() -> None:
 
 def main() -> None:
     """Sync entrypoint for the ``clanker`` console script."""
-    try:
+    import contextlib
+
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

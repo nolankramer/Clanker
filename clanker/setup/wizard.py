@@ -274,6 +274,16 @@ def generate_config(answers: dict[str, Any]) -> str:
         if push:
             cfg["announce"]["fallback_push_targets"] = push
 
+    # Conversation / voice
+    conv: dict[str, Any] = {"port": answers.get("conversation_port", 8472)}
+    tts = answers.get("tts_engine")
+    if tts:
+        conv["tts_engine"] = tts
+    tts_voice = answers.get("tts_voice")
+    if tts_voice:
+        conv["tts_voice"] = tts_voice
+    cfg["conversation"] = conv
+
     # Logging
     cfg["log_level"] = "INFO"
 

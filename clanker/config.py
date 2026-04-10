@@ -145,6 +145,18 @@ class FrigateConfig(BaseModel):
     )
 
 
+class ConversationConfig(BaseModel):
+    """Conversation agent / voice pipeline settings."""
+
+    host: str = "0.0.0.0"
+    port: int = 8472
+    system_prompt: str = ""
+    session_ttl_seconds: float = 600.0
+    tts_engine: str = ""
+    tts_voice: str = ""
+    stt_engine: str = ""
+
+
 class ProactiveConfig(BaseModel):
     """Proactive automation settings."""
 
@@ -217,6 +229,7 @@ class ClankerSettings(BaseSettings):
 
     memory: MemoryConfig = MemoryConfig()
     announce: AnnounceConfig = AnnounceConfig()
+    conversation: ConversationConfig = ConversationConfig()
     frigate: FrigateConfig = FrigateConfig()
     proactive: ProactiveConfig = ProactiveConfig()
     remote: RemoteConfig = RemoteConfig()
