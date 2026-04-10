@@ -75,30 +75,55 @@ fi
 mkdir -p "$OUTPUT_DIR" "$WORK_DIR"
 
 # Download base image
-BASE_IMG="$WORK_DIR/base-${ARCH}.img"
+BASE_IMG="$WORK_DIR/base-${ARCH}.qcow2"
 if [ ! -f "$BASE_IMG" ]; then
     echo "Downloading base image..."
     wget -q --show-progress -O "$BASE_IMG" "$BASE_URL"
 fi
 
-# Copy and resize
-echo "Preparing image..."
-cp "$BASE_IMG" "$OUTPUT_FILE"
-qemu-img resize "$OUTPUT_FILE" "$IMAGE_SIZE"
+# Convert qcow2 → raw and resize
+echo "Converting and resizing image..."
+qemu-img convert -f qcow2 -O raw "$BASE_IMG" "$OUTPUT_FILE"
+qemu-img resize -f raw "$OUTPUT_FILE" "$IMAGE_SIZE"
+
+# Fix partition table to use full disk
+echo "Expanding partition..."
+# Grow the last partition to fill the disk
+PART_NUM=$(sfdisk -l "$OUTPUT_FILE" 2>/dev/null | grep -c "^${OUTPUT_FILE}")
+if [ "$PART_NUM" -eq 0 ]; then
+    PART_NUM=1
+fi
+echo ", +" | sfdisk -N "$PART_NUM" "$OUTPUT_FILE" 2>/dev/null || true
 
 # Mount the image
 echo "Mounting image..."
 LOOP=$(losetup --find --show --partscan "$OUTPUT_FILE")
-PART="${LOOP}p1"
 
-# Wait for partition to appear
-sleep 1
-if [ ! -b "$PART" ]; then
-    # Try to detect the right partition
-    partprobe "$LOOP" 2>/dev/null || true
-    sleep 1
-    PART="${LOOP}p1"
+# Wait for kernel to detect partitions
+udevadm settle 2>/dev/null || sleep 2
+
+# Find the right partition (usually p1 or p15 for cloud images)
+PART=""
+for p in "${LOOP}p1" "${LOOP}p2" "${LOOP}p15"; do
+    if [ -b "$p" ]; then
+        # Check if it's an ext4 filesystem
+        FSTYPE=$(blkid -s TYPE -o value "$p" 2>/dev/null || true)
+        if [ "$FSTYPE" = "ext4" ]; then
+            PART="$p"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PART" ]; then
+    echo "ERROR: Could not find ext4 partition in image"
+    echo "Available partitions:"
+    ls -la "${LOOP}"p* 2>/dev/null || echo "  none"
+    losetup -d "$LOOP"
+    exit 1
 fi
+
+echo "Using partition: $PART"
 
 # Resize filesystem to fill the image
 e2fsck -f -y "$PART" 2>/dev/null || true
