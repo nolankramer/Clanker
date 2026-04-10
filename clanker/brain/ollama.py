@@ -98,6 +98,11 @@ class OllamaProvider(LLMProvider):
         self._base_url = config.base_url.rstrip("/")
         self._model = config.model
         self._max_tokens = config.max_tokens
+        self._keep_alive = config.keep_alive
+        self._default_options: dict[str, Any] = {
+            "num_ctx": config.num_ctx,
+            "num_gpu": config.num_gpu,
+        }
         self._client = httpx.AsyncClient(base_url=self._base_url, timeout=120.0)
 
     @property
@@ -121,11 +126,13 @@ class OllamaProvider(LLMProvider):
         max_tokens: int | None = None,
     ) -> LLMResponse:
         """Send a non-streaming chat completion to Ollama."""
+        options = {**self._default_options, "num_predict": max_tokens or self._max_tokens}
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": _build_messages(messages, system),
             "stream": False,
-            "options": {"num_predict": max_tokens or self._max_tokens},
+            "keep_alive": self._keep_alive,
+            "options": options,
         }
         if tools:
             payload["tools"] = _build_tools(tools)
@@ -159,11 +166,13 @@ class OllamaProvider(LLMProvider):
         max_tokens: int | None = None,
     ) -> AsyncIterator[StreamDelta]:
         """Stream a chat completion from Ollama, yielding deltas."""
+        options = {**self._default_options, "num_predict": max_tokens or self._max_tokens}
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": _build_messages(messages, system),
             "stream": True,
-            "options": {"num_predict": max_tokens or self._max_tokens},
+            "keep_alive": self._keep_alive,
+            "options": options,
         }
         if tools:
             payload["tools"] = _build_tools(tools)
@@ -204,6 +213,7 @@ class OllamaProvider(LLMProvider):
         """Describe an image using a multimodal Ollama model."""
         b64 = base64.b64encode(image_data).decode("utf-8")
 
+        options = {**self._default_options, "num_predict": max_tokens or self._max_tokens}
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": [
@@ -214,7 +224,8 @@ class OllamaProvider(LLMProvider):
                 }
             ],
             "stream": False,
-            "options": {"num_predict": max_tokens or self._max_tokens},
+            "keep_alive": self._keep_alive,
+            "options": options,
         }
 
         logger.debug("ollama.vision", model=self._model)

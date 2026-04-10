@@ -132,17 +132,71 @@ def _step_providers(answers: dict[str, Any]) -> None:
     # Ollama
     if _confirm("Enable Ollama (local)?", default=True):
         answers["ollama_enabled"] = True
+
+        from clanker.setup.ollama import (
+            _RECOMMENDED_MODELS,
+            get_optimization_advice,
+            install_ollama,
+            is_ollama_installed,
+            pull_model,
+        )
+
+        # Auto-install if missing
+        if not is_ollama_installed():
+            print(f"  {_DIM}Ollama not found.{_RESET}")
+            if _confirm("Install Ollama automatically?", default=True):
+                print("  Installing Ollama...")
+                r = install_ollama()
+                print(_ok(r["message"]) if r["ok"] else _fail(r["message"]))
+
         answers["ollama_url"] = _prompt("Ollama URL", "http://localhost:11434")
         print("  Testing...")
         r = test_ollama(answers["ollama_url"])
         if r["ok"]:
             print(_ok(r["message"]))
             models = r.get("models", [])
+            installed_names = {m.split(":")[0] for m in models}
+
+            # Offer to pull recommended models
+            if not models or _confirm("Pull recommended models?"):
+                for _key, rec in _RECOMMENDED_MODELS.items():
+                    name = rec["model"].split(":")[0]
+                    if name in installed_names:
+                        print(_ok(f"{rec['model']} ({rec['description']})"))
+                    else:
+                        if _confirm(
+                            f"  Pull {rec['model']}? "
+                            f"({rec['description']}, {rec['size']})"
+                        ):
+                            print(f"  Pulling {rec['model']}...")
+                            pr = pull_model(rec["model"])
+                            if pr["ok"]:
+                                print(_ok(f"Pulled {rec['model']}"))
+                            else:
+                                print(_fail(pr["message"]))
+
+            # Re-check models after pulling
+            r2 = test_ollama(answers["ollama_url"])
+            models = r2.get("models", []) if r2["ok"] else models
             default_model = models[0] if models else "llama3.2"
             answers["ollama_model"] = _prompt("Model", default_model)
         else:
             print(_fail(r["message"]))
             answers["ollama_model"] = _prompt("Model", "llama3.2")
+
+        # Optimization advice
+        print(f"\n  {_BOLD}Optimization for voice assistant:{_RESET}")
+        advice = get_optimization_advice()
+        for tip in advice["tips"]:
+            print(f"  {_DIM}- {tip}{_RESET}")
+        answers["ollama_options"] = advice["options"]
+        answers["ollama_env"] = advice["env"]
+
+        if _confirm("\n  Apply Ollama optimizations? (requires sudo)"):
+            from clanker.setup.ollama import apply_systemd_env
+
+            ar = apply_systemd_env(advice["env"])
+            print(_ok(ar["message"]) if ar["ok"] else _fail(ar["message"]))
 
 
 def _step_routing(answers: dict[str, Any]) -> None:

@@ -63,6 +63,9 @@ class _Handler(BaseHTTPRequestHandler):
             "/api/discover": self._handle_discover,
             "/api/voice/install-component": self._handle_install_component,
             "/api/discover/ha": self._handle_discover_ha,
+            "/api/ollama/install": self._handle_ollama_install,
+            "/api/ollama/pull": self._handle_ollama_pull,
+            "/api/ollama/optimize": self._handle_ollama_optimize,
             "/api/deploy/test-ssh": self._handle_test_ssh,
             "/api/deploy/ssh": self._handle_deploy_ssh,
             "/api/config/save": self._handle_save,
@@ -103,6 +106,29 @@ class _Handler(BaseHTTPRequestHandler):
         entities = discover_entities(url, token)
         rooms = infer_rooms(entities)
         self._json_response({"entities": entities, "rooms": rooms})
+
+    def _handle_ollama_install(self, body: dict[str, Any]) -> None:
+        from clanker.setup.ollama import install_ollama
+
+        self._json_response(install_ollama())
+
+    def _handle_ollama_pull(self, body: dict[str, Any]) -> None:
+        from clanker.setup.ollama import pull_model
+
+        model = body.get("model", "llama3.2")
+        self._json_response(pull_model(model))
+
+    def _handle_ollama_optimize(self, body: dict[str, Any]) -> None:
+        from clanker.setup.ollama import apply_systemd_env, get_optimization_advice
+
+        advice = get_optimization_advice(
+            has_gpu=body.get("has_gpu", False),
+            ram_gb=body.get("ram_gb", 16),
+        )
+        if body.get("apply"):
+            result = apply_systemd_env(advice["env"])
+            advice["applied"] = result
+        self._json_response(advice)
 
     def _handle_discover_ha(self, body: dict[str, Any]) -> None:
         from clanker.setup.discovery import discover_ha

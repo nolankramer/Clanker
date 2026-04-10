@@ -69,6 +69,9 @@ class OllamaConfig(BaseModel):
     base_url: str = "http://localhost:11434"
     model: str = "llama3.2"
     max_tokens: int = 4096
+    keep_alive: int = -1  # -1 = never unload, eliminates cold-start
+    num_ctx: int = 1024   # small context = faster TTFT for voice
+    num_gpu: int = 999    # offload all layers to GPU if available
 
 
 class OpenAICompatConfig(BaseModel):

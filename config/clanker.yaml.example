@@ -20,6 +20,9 @@ ollama:
   base_url: "http://localhost:11434"
   model: "llama3.2"
   max_tokens: 4096
+  keep_alive: -1      # -1 = never unload model (eliminates cold-start TTFT)
+  num_ctx: 1024       # smaller context = faster prompt eval for voice
+  num_gpu: 999        # offload all layers to GPU (if available)
 
 # Optional: OpenAI-compatible endpoint (llama.cpp, vLLM, etc.)
 # openai_compat:
