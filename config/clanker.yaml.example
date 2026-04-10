@@ -1,0 +1,99 @@
+# Clanker configuration
+# Copy to config/clanker.yaml and edit to match your setup.
+# Secrets (API keys, HA token) should be set via environment variables or .env,
+# NOT in this file.
+
+# Home Assistant connection (token via CLANKER_HA__TOKEN env var)
+ha:
+  url: "http://homeassistant.local:8123"
+
+# LLM providers — API keys via env vars
+anthropic:
+  model: "claude-sonnet-4-20250514"
+  max_tokens: 4096
+
+openai:
+  model: "gpt-4o"
+  max_tokens: 4096
+
+ollama:
+  base_url: "http://localhost:11434"
+  model: "llama3.2"
+  max_tokens: 4096
+
+# Optional: OpenAI-compatible endpoint (llama.cpp, vLLM, etc.)
+# openai_compat:
+#   base_url: "http://localhost:8080/v1"
+#   model: "default"
+
+# Task-to-provider routing
+task_routes:
+  - task: vision
+    provider: anthropic
+  - task: reasoning
+    provider: anthropic
+  - task: quick_intent
+    provider: ollama
+  - task: summarization
+    provider: ollama
+  - task: conversation
+    provider: anthropic
+
+default_provider: anthropic
+
+# Memory system
+memory:
+  db_path: "data/clanker.db"
+  markdown_dir: "config/memory"
+  chromadb_path: "data/chroma"
+  embedding_model: "nomic-embed-text"
+  embedding_base_url: "http://localhost:11434"
+
+# Announcement routing
+announce:
+  quiet_hours:
+    enabled: true
+    start_hour: 22
+    end_hour: 7
+  room_speakers:
+    - room: living_room
+      speaker_entity_ids:
+        - media_player.living_room_speaker
+    - room: kitchen
+      speaker_entity_ids:
+        - media_player.kitchen_speaker
+    - room: office
+      speaker_entity_ids:
+        - media_player.office_speaker
+    - room: bedroom
+      speaker_entity_ids:
+        - media_player.bedroom_speaker
+  occupancy_sensors:
+    - room: living_room
+      sensor_entity_id: binary_sensor.living_room_occupancy
+    - room: kitchen
+      sensor_entity_id: binary_sensor.kitchen_occupancy
+    - room: office
+      sensor_entity_id: binary_sensor.office_occupancy
+    - room: bedroom
+      sensor_entity_id: binary_sensor.bedroom_occupancy
+  fallback_push_targets:
+    - notify.mobile_app_my_phone
+  tts_service: tts.speak
+
+# Proactive automation
+proactive:
+  morning_briefing_after_hour: 6
+  briefing_motion_sensor: binary_sensor.office_motion
+  briefing_speaker: media_player.office_speaker
+
+# Remote access
+remote:
+  allowed_actions:
+    - check_cameras
+    - get_state
+    - notify
+
+# Logging
+log_level: INFO
+log_json: false
