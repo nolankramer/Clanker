@@ -77,12 +77,24 @@ async def run() -> None:
     except Exception:
         logger.exception("clanker.subscribe_failed")
 
+    # ---- Telegram Bot ----
+    from clanker.remote.chat import TelegramBot
+
+    telegram: TelegramBot | None = None
+    tg_cfg = settings.remote.telegram
+    if tg_cfg.enabled and tg_cfg.bot_token and tg_cfg.chat_ids:
+        telegram = TelegramBot(
+            token=tg_cfg.bot_token,
+            chat_ids=tg_cfg.chat_ids,
+            # agent wired later after ConversationAgent is created
+        )
+
     # ---- Announcement Router + Delivery ----
     from clanker.announce.deliver import Announcer
     from clanker.announce.router import AnnouncementRouter
 
     announcement_router = AnnouncementRouter(ha_client, settings.announce)
-    announcer = Announcer(announcement_router, ha_services)
+    announcer = Announcer(announcement_router, ha_services, telegram=telegram)
 
     # ---- VLM ----
     from clanker.vision.vlm import BrainVLM
@@ -167,6 +179,12 @@ async def run() -> None:
     )
     await conversation_server.start()
 
+    # ---- Start Telegram bot (with agent now available) ----
+    if telegram:
+        telegram._agent = conversation_agent
+        await telegram.start()
+        logger.info("clanker.telegram_started")
+
     # ---- Proactive Scheduler ----
     from clanker.proactive.briefing import MorningBriefing
     from clanker.proactive.scheduler import ProactiveScheduler
@@ -221,6 +239,8 @@ async def run() -> None:
     logger.info("clanker.shutting_down")
 
     await scheduler.stop()
+    if telegram:
+        await telegram.stop()
     await conversation_server.stop()
     if frigate:
         await frigate.close()

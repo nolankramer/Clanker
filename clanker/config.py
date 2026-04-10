@@ -165,9 +165,21 @@ class ProactiveConfig(BaseModel):
     briefing_speaker: str = ""
 
 
+class TelegramConfig(BaseModel):
+    """Telegram bot settings."""
+
+    enabled: bool = False
+    bot_token: str = ""
+    chat_ids: list[int] = Field(
+        default_factory=list,
+        description="Allowed Telegram chat IDs for notifications and control",
+    )
+
+
 class RemoteConfig(BaseModel):
     """Remote access settings."""
 
+    telegram: TelegramConfig = TelegramConfig()
     allowed_actions: list[str] = Field(
         default_factory=lambda: ["check_cameras", "get_state", "notify"],
         description="Actions permitted via remote chat surface",

@@ -104,8 +104,12 @@ proactive:
   briefing_motion_sensor: binary_sensor.office_motion
   briefing_speaker: media_player.office_speaker
 
-# Remote access
+# Remote access + Telegram bot
 remote:
+  telegram:
+    enabled: false
+    # bot_token via CLANKER_REMOTE__TELEGRAM__BOT_TOKEN env var
+    chat_ids: []  # your Telegram chat ID(s) — run clanker-setup to auto-detect
   allowed_actions:
     - check_cameras
     - get_state

@@ -284,6 +284,15 @@ def generate_config(answers: dict[str, Any]) -> str:
         conv["tts_voice"] = tts_voice
     cfg["conversation"] = conv
 
+    # Telegram
+    if answers.get("telegram_enabled"):
+        cfg["remote"] = {
+            "telegram": {
+                "enabled": True,
+                "chat_ids": answers.get("telegram_chat_ids", []),
+            }
+        }
+
     # Logging
     cfg["log_level"] = "INFO"
 
@@ -300,6 +309,8 @@ def generate_env(answers: dict[str, Any]) -> str:
         lines.append(f"CLANKER_ANTHROPIC__API_KEY={answers['anthropic_key']}")
     if answers.get("openai_key"):
         lines.append(f"CLANKER_OPENAI__API_KEY={answers['openai_key']}")
+    if answers.get("telegram_token"):
+        lines.append(f"CLANKER_REMOTE__TELEGRAM__BOT_TOKEN={answers['telegram_token']}")
 
     lines.append("")
     return "\n".join(lines)

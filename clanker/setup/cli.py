@@ -284,8 +284,50 @@ def _step_voice(answers: dict[str, Any]) -> None:
     print(f"  {_DIM}  python -m clanker.setup.wakeword --deploy /share/openwakeword{_RESET}")
 
 
+def _step_telegram(answers: dict[str, Any]) -> None:
+    _header(7, "Telegram Bot (Remote Chat + Alerts)")
+
+    if not _confirm("Set up Telegram for remote chat and push alerts?"):
+        return
+
+    print(f"\n  {_DIM}1. Open Telegram and message @BotFather{_RESET}")
+    print(f"  {_DIM}2. Send /newbot and follow the prompts{_RESET}")
+    print(f"  {_DIM}3. Copy the bot token below{_RESET}\n")
+
+    bot_token = _secret("Bot token from @BotFather")
+    if not bot_token:
+        return
+
+    from clanker.remote.chat import get_bot_info, get_chat_id
+
+    print("  Verifying token...")
+    info = get_bot_info(bot_token)
+    if not info["ok"]:
+        print(_fail(info.get("message", "Invalid token")))
+        return
+
+    print(_ok(f"Bot verified: @{info['username']}"))
+    answers["telegram_enabled"] = True
+    answers["telegram_token"] = bot_token
+
+    print(f"\n  Now send any message to @{info['username']} on Telegram.")
+    print(f"  {_DIM}Waiting for your message (60s timeout)...{_RESET}")
+
+    result = get_chat_id(bot_token, timeout=60.0)
+    if result["ok"]:
+        chat_id = result["chat_id"]
+        name = result.get("first_name", "")
+        print(_ok(f"Got your chat ID: {chat_id} ({name})"))
+        answers["telegram_chat_ids"] = [chat_id]
+    else:
+        print(_fail("No message received. Enter your chat ID manually:"))
+        manual = _prompt("Chat ID")
+        if manual:
+            answers["telegram_chat_ids"] = [int(manual)]
+
+
 def _step_deploy(answers: dict[str, Any]) -> None:
-    _header(7, "Deployment")
+    _header(8, "Deployment")
     print(f"  {_BOLD}Where should Clanker run?{_RESET}\n")
     print(f"  {_CYAN}1{_RESET}  Here (local machine)")
     print(f"  {_CYAN}2{_RESET}  On the HA server (via HA Add-on)")
@@ -354,7 +396,7 @@ def _step_deploy(answers: dict[str, Any]) -> None:
 
 
 def _step_save(answers: dict[str, Any]) -> None:
-    _header(8, "Save Configuration")
+    _header(9, "Save Configuration")
     yaml_content = generate_config(answers)
     env_content = generate_env(answers)
 
@@ -420,6 +462,7 @@ def main() -> None:
         _step_frigate(answers)
         _step_discovery(answers)
         _step_voice(answers)
+        _step_telegram(answers)
         _step_deploy(answers)
         _step_save(answers)
     except KeyboardInterrupt:
