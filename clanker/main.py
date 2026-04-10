@@ -89,12 +89,27 @@ async def run() -> None:
             # agent wired later after ConversationAgent is created
         )
 
+    # ---- SMS Adapter ----
+    from clanker.remote.sms import SMSAdapter
+
+    sms: SMSAdapter | None = None
+    sms_cfg = settings.remote.sms
+    if sms_cfg.enabled and sms_cfg.account_sid and sms_cfg.from_number:
+        sms = SMSAdapter(
+            account_sid=sms_cfg.account_sid,
+            auth_token=sms_cfg.auth_token,
+            from_number=sms_cfg.from_number,
+            to_numbers=sms_cfg.to_numbers,
+        )
+
     # ---- Announcement Router + Delivery ----
     from clanker.announce.deliver import Announcer
     from clanker.announce.router import AnnouncementRouter
 
     announcement_router = AnnouncementRouter(ha_client, settings.announce)
-    announcer = Announcer(announcement_router, ha_services, telegram=telegram)
+    announcer = Announcer(
+        announcement_router, ha_services, telegram=telegram, sms=sms
+    )
 
     # ---- VLM ----
     from clanker.vision.vlm import BrainVLM
@@ -172,10 +187,15 @@ async def run() -> None:
         session_ttl=settings.conversation.session_ttl_seconds,
     )
 
+    # Wire agent into SMS for inbound message handling
+    if sms:
+        sms._agent = conversation_agent
+
     conversation_server = ConversationServer(
         agent=conversation_agent,
         host=settings.conversation.host,
         port=settings.conversation.port,
+        sms_adapter=sms,
     )
     await conversation_server.start()
 
@@ -241,6 +261,8 @@ async def run() -> None:
     await scheduler.stop()
     if telegram:
         await telegram.stop()
+    if sms:
+        await sms.close()
     await conversation_server.stop()
     if frigate:
         await frigate.close()

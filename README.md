@@ -146,7 +146,7 @@ See `docs/safety.md` for the full safety model.
 ## Development
 
 ```bash
-# Run tests (127 tests)
+# Run tests (149 tests)
 uv run pytest
 
 # Lint
@@ -177,8 +177,9 @@ uv run mypy clanker/
 - [x] Setup wizards (CLI + web) with auto-discovery and deployment
 - [x] HA Add-on for one-click server deployment
 - [x] SSH remote deployment
-- [ ] Remote push notifications with action callbacks
-- [ ] Remote chat bot (Telegram/Signal)
+- [x] Telegram bot (remote chat + push with images and inline buttons)
+- [x] SMS via Twilio (alerts + bidirectional chat via text message)
+- [x] Unified push notification system (Telegram + SMS + HA mobile)
 
 ## License
 

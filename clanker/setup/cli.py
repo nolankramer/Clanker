@@ -284,10 +284,26 @@ def _step_voice(answers: dict[str, Any]) -> None:
     print(f"  {_DIM}  python -m clanker.setup.wakeword --deploy /share/openwakeword{_RESET}")
 
 
-def _step_telegram(answers: dict[str, Any]) -> None:
-    _header(7, "Telegram Bot (Remote Chat + Alerts)")
+def _step_notifications(answers: dict[str, Any]) -> None:
+    _header(7, "Remote Notifications")
+    print(f"  {_BOLD}Choose a notification platform:{_RESET}\n")
+    print(f"  {_CYAN}1{_RESET}  Telegram (recommended — images, buttons, chat)")
+    print(f"  {_CYAN}2{_RESET}  SMS via Twilio (universal — requires Twilio account)")
+    print(f"  {_CYAN}3{_RESET}  Both")
+    print(f"  {_CYAN}4{_RESET}  Skip (HA push only)")
+    print()
 
-    if not _confirm("Set up Telegram for remote chat and push alerts?"):
+    choice = _prompt("Choice", "1")
+
+    if choice in ("1", "3"):
+        _setup_telegram(answers)
+    if choice in ("2", "3"):
+        _setup_sms(answers)
+
+
+def _setup_telegram(answers: dict[str, Any]) -> None:
+    print(f"\n  {_BOLD}Telegram Setup{_RESET}")
+    if not _confirm("  Set up Telegram?"):
         return
 
     print(f"\n  {_DIM}1. Open Telegram and message @BotFather{_RESET}")
@@ -324,6 +340,38 @@ def _step_telegram(answers: dict[str, Any]) -> None:
         manual = _prompt("Chat ID")
         if manual:
             answers["telegram_chat_ids"] = [int(manual)]
+
+
+def _setup_sms(answers: dict[str, Any]) -> None:
+    print(f"\n  {_BOLD}SMS Setup (Twilio){_RESET}")
+    print(f"  {_DIM}Requires a Twilio account: https://www.twilio.com{_RESET}")
+    print(f"  {_DIM}More complex than Telegram — needs account + phone number.{_RESET}\n")
+
+    if not _confirm("  Set up SMS via Twilio?"):
+        return
+
+    sid = _prompt("Twilio Account SID")
+    token = _secret("Twilio Auth Token")
+    if not sid or not token:
+        print(_fail("SID and token required"))
+        return
+
+    from clanker.remote.sms import test_twilio_credentials
+
+    print("  Verifying credentials...")
+    result = test_twilio_credentials(sid, token)
+    if not result["ok"]:
+        print(_fail(result.get("message", "Invalid credentials")))
+        return
+
+    print(_ok(f"Twilio account verified: {result.get('name', '')}"))
+    answers["sms_enabled"] = True
+    answers["sms_account_sid"] = sid
+    answers["sms_auth_token"] = token
+    answers["sms_from"] = _prompt("Twilio phone number (E.164)", "+1")
+    to = _prompt("Your phone number (E.164)", "+1")
+    if to:
+        answers["sms_to_numbers"] = [to]
 
 
 def _step_deploy(answers: dict[str, Any]) -> None:
@@ -462,7 +510,7 @@ def main() -> None:
         _step_frigate(answers)
         _step_discovery(answers)
         _step_voice(answers)
-        _step_telegram(answers)
+        _step_notifications(answers)
         _step_deploy(answers)
         _step_save(answers)
     except KeyboardInterrupt:

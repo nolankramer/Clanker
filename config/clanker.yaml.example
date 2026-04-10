@@ -104,12 +104,21 @@ proactive:
   briefing_motion_sensor: binary_sensor.office_motion
   briefing_speaker: media_player.office_speaker
 
-# Remote access + Telegram bot
+# Remote access — Telegram, SMS, or both
 remote:
   telegram:
     enabled: false
     # bot_token via CLANKER_REMOTE__TELEGRAM__BOT_TOKEN env var
-    chat_ids: []  # your Telegram chat ID(s) — run clanker-setup to auto-detect
+    chat_ids: []  # run clanker-setup to auto-detect
+
+  sms:
+    enabled: false
+    # account_sid + auth_token via env vars:
+    #   CLANKER_REMOTE__SMS__ACCOUNT_SID
+    #   CLANKER_REMOTE__SMS__AUTH_TOKEN
+    from_number: ""  # your Twilio number (E.164: +1234567890)
+    to_numbers: []   # recipient phone numbers
+
   allowed_actions:
     - check_cameras
     - get_state

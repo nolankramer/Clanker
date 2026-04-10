@@ -32,10 +32,13 @@ class ConversationServer:
         agent: ConversationAgent,
         host: str = "0.0.0.0",
         port: int = 8472,
+        *,
+        sms_adapter: Any | None = None,
     ) -> None:
         self._agent = agent
         self._host = host
         self._port = port
+        self._sms = sms_adapter
         self._server: asyncio.Server | None = None
 
     async def start(self) -> None:
@@ -62,6 +65,9 @@ class ConversationServer:
             if method == "POST" and path == "/api/conversation/process":
                 result = await self._handle_conversation(body)
                 await self._send_json(writer, 200, result)
+            elif method == "POST" and path == "/api/sms/webhook":
+                twiml = await self._handle_sms_webhook(body)
+                await self._send_xml(writer, 200, twiml)
             elif method == "GET" and path == "/api/health":
                 await self._send_json(writer, 200, {"ok": True})
             else:
@@ -74,6 +80,12 @@ class ConversationServer:
             writer.close()
             with contextlib.suppress(Exception):
                 await writer.wait_closed()
+
+    async def _handle_sms_webhook(self, body: dict[str, Any]) -> str:
+        """Process a Twilio SMS webhook."""
+        if not self._sms:
+            return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return await self._sms.handle_webhook(body)
 
     async def _handle_conversation(self, body: dict[str, Any]) -> dict[str, Any]:
         """Process a conversation request."""
@@ -120,6 +132,20 @@ class ConversationServer:
                 body = json.loads(raw)
 
         return method, path, body
+
+    @staticmethod
+    async def _send_xml(
+        writer: asyncio.StreamWriter, status: int, data: str
+    ) -> None:
+        """Write an HTTP XML/TwiML response."""
+        payload = data.encode("utf-8")
+        writer.write(f"HTTP/1.1 {status} OK\r\n".encode())
+        writer.write(b"Content-Type: application/xml\r\n")
+        writer.write(f"Content-Length: {len(payload)}\r\n".encode())
+        writer.write(b"Connection: close\r\n")
+        writer.write(b"\r\n")
+        writer.write(payload)
+        await writer.drain()
 
     @staticmethod
     async def _send_json(

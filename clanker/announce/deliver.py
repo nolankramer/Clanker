@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from clanker.announce.router import AnnouncementRouter, AudienceRules
     from clanker.ha.services import HAServices
     from clanker.remote.chat import TelegramBot
+    from clanker.remote.sms import SMSAdapter
 
 logger = structlog.get_logger(__name__)
 
@@ -36,10 +37,12 @@ class Announcer:
         services: HAServices,
         *,
         telegram: TelegramBot | None = None,
+        sms: SMSAdapter | None = None,
     ) -> None:
         self._router = router
         self._services = services
         self._telegram = telegram
+        self._sms = sms
 
     async def say(
         self,
@@ -112,10 +115,23 @@ class Announcer:
             except Exception:
                 logger.exception("announcer.telegram_error")
 
+        # SMS push (same conditions as Telegram)
+        if self._sms and (
+            priority >= Priority.HIGH
+            or not targets.tts_speakers
+            or targets.suppressed
+        ):
+            try:
+                sms_text = f"{title}: {message}" if title else message
+                await self._sms.send(sms_text)
+            except Exception:
+                logger.exception("announcer.sms_error")
+
         logger.info(
             "announcer.delivered",
             message=message[:80],
             tts_count=len(targets.tts_speakers),
             push_count=len(targets.push_targets),
             telegram=self._telegram is not None,
+            sms=self._sms is not None,
         )

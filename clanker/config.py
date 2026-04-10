@@ -176,10 +176,24 @@ class TelegramConfig(BaseModel):
     )
 
 
+class SMSConfig(BaseModel):
+    """SMS via Twilio settings."""
+
+    enabled: bool = False
+    account_sid: str = ""
+    auth_token: str = ""
+    from_number: str = ""
+    to_numbers: list[str] = Field(
+        default_factory=list,
+        description="Phone numbers to send alerts to (E.164 format: +1234567890)",
+    )
+
+
 class RemoteConfig(BaseModel):
     """Remote access settings."""
 
     telegram: TelegramConfig = TelegramConfig()
+    sms: SMSConfig = SMSConfig()
     allowed_actions: list[str] = Field(
         default_factory=lambda: ["check_cameras", "get_state", "notify"],
         description="Actions permitted via remote chat surface",

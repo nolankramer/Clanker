@@ -284,14 +284,21 @@ def generate_config(answers: dict[str, Any]) -> str:
         conv["tts_voice"] = tts_voice
     cfg["conversation"] = conv
 
-    # Telegram
+    # Remote (Telegram + SMS)
+    remote: dict[str, Any] = {}
     if answers.get("telegram_enabled"):
-        cfg["remote"] = {
-            "telegram": {
-                "enabled": True,
-                "chat_ids": answers.get("telegram_chat_ids", []),
-            }
+        remote["telegram"] = {
+            "enabled": True,
+            "chat_ids": answers.get("telegram_chat_ids", []),
         }
+    if answers.get("sms_enabled"):
+        remote["sms"] = {
+            "enabled": True,
+            "from_number": answers.get("sms_from", ""),
+            "to_numbers": answers.get("sms_to_numbers", []),
+        }
+    if remote:
+        cfg["remote"] = remote
 
     # Logging
     cfg["log_level"] = "INFO"
@@ -311,6 +318,10 @@ def generate_env(answers: dict[str, Any]) -> str:
         lines.append(f"CLANKER_OPENAI__API_KEY={answers['openai_key']}")
     if answers.get("telegram_token"):
         lines.append(f"CLANKER_REMOTE__TELEGRAM__BOT_TOKEN={answers['telegram_token']}")
+    if answers.get("sms_account_sid"):
+        lines.append(f"CLANKER_REMOTE__SMS__ACCOUNT_SID={answers['sms_account_sid']}")
+    if answers.get("sms_auth_token"):
+        lines.append(f"CLANKER_REMOTE__SMS__AUTH_TOKEN={answers['sms_auth_token']}")
 
     lines.append("")
     return "\n".join(lines)
