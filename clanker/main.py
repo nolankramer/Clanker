@@ -77,10 +77,12 @@ async def run() -> None:
     except Exception:
         logger.exception("clanker.subscribe_failed")
 
-    # ---- Announcement Router ----
+    # ---- Announcement Router + Delivery ----
+    from clanker.announce.deliver import Announcer
     from clanker.announce.router import AnnouncementRouter
 
-    _announcement_router = AnnouncementRouter(ha_client, settings.announce)
+    announcement_router = AnnouncementRouter(ha_client, settings.announce)
+    announcer = Announcer(announcement_router, ha_services)
 
     # ---- VLM ----
     from clanker.vision.vlm import BrainVLM
@@ -114,6 +116,34 @@ async def run() -> None:
         logger.info("clanker.faces_started")
     except Exception:
         logger.warning("clanker.faces_subscribe_failed", exc_info=True)
+
+    # ---- Proactive Event Handlers ----
+    from clanker.proactive.handlers.appliance import ApplianceHandler
+    from clanker.proactive.handlers.critical import CriticalEventHandler
+
+    critical_handler = CriticalEventHandler(announcer)
+    dispatcher.register("state_changed", critical_handler.handle_event)
+
+    appliance_handler = ApplianceHandler(announcer)
+    dispatcher.register("state_changed", appliance_handler.handle_event)
+
+    if frigate:
+        from clanker.proactive.handlers.doorbell import DoorbellHandler
+        from clanker.proactive.handlers.unknown_person import UnknownPersonHandler
+
+        doorbell_handler = DoorbellHandler(
+            announcer=announcer,
+            frigate=frigate,
+            vlm=vlm,
+            face_recognizer=face_recognizer,
+        )
+        frigate.on_event(doorbell_handler.handle_event)
+
+        unknown_handler = UnknownPersonHandler(
+            announcer=announcer, frigate=frigate, vlm=vlm
+        )
+        frigate.on_event(unknown_handler.handle_event)
+        logger.info("clanker.vision_handlers_registered")
 
     # ---- Conversation Agent + HTTP Server ----
     from clanker.conversation.agent import ConversationAgent

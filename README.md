@@ -2,7 +2,7 @@
 
 **LLM-powered smart home assistant on top of Home Assistant.**
 
-Clanker is a self-hosted Python service that adds a brain, memory, vision reasoning, proactive announcements, and remote control surface on top of your existing Home Assistant setup. HA remains the source of truth for devices and automations — Clanker adds the intelligence layer.
+Clanker is a self-hosted Python service that adds a brain, memory, vision reasoning, proactive announcements, and voice control on top of your existing Home Assistant setup. HA remains the source of truth for devices and automations — Clanker adds the intelligence layer.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 │  │ Proactive │  │  Remote  │  │  MCP   │  │  Convo   │             │
 │  │ Scheduler │  │  Push    │  │ Server │  │  Agent   │             │
 │  │ Briefing  │  │  Chat    │  │ Tools  │  │ Sessions │             │
-│  │ Handlers  │  │          │  │        │  │          │             │
+│  │ Handlers  │  │          │  │        │  │  HTTP API│             │
 │  └───────────┘  └──────────┘  └────────┘  └──────────┘             │
 │                                                                      │
 │  Tools exposed to brain via MCP:                                     │
@@ -58,43 +58,63 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 - **Deterministic fast paths.** Critical events (fire, break-in) bypass the LLM for immediate response.
 - **Human-readable memory.** Markdown files you can read, edit, grep, and git-diff.
 - **Config-driven routing.** Which LLM handles which task type is config, not code.
+- **Local by default.** STT (Whisper), TTS (Piper), and LLM (Ollama) all run locally. Cloud providers are optional.
 
 ## Quickstart
 
-### Prerequisites
+### Setup Wizard (recommended)
 
-- Python 3.12+
-- Home Assistant with a long-lived access token
-- (Optional) Ollama for local LLM inference
-- (Optional) Frigate for camera/detection events
+```bash
+pip install -e .
+clanker-setup           # Interactive CLI wizard
+clanker-setup --web     # Browser-based wizard at localhost:8471
+```
 
-### Docker (recommended)
+The wizard auto-discovers Home Assistant, tests connections, discovers entities, configures voice pipeline, and offers three deployment modes:
+
+1. **HA Add-on** — One-click install from HA's add-on store (recommended for HA OS)
+2. **Remote SSH** — Deploy to any server with Docker
+3. **Local** — Run on your machine
+
+See `docs/quickstart.md` for the full guide.
+
+### Docker
 
 ```bash
 cp .env.example .env
-# Edit .env with your HA URL, token, and API keys
-
 cp config/clanker.yaml.example config/clanker.yaml
-# Edit config/clanker.yaml to match your room/speaker/sensor setup
+# Edit both files
 
 docker compose up -d
 ```
 
-### Bare metal
+### HA Add-on
+
+1. In HA: Settings → Add-ons → Add-on Store → ⋮ → Repositories
+2. Add `https://github.com/nolankramer/clanker`
+3. Install Clanker, configure API keys, start
+
+The add-on auto-installs the HA custom component, generates config, and gets the auth token from HA's Supervisor — no manual setup needed.
+
+## Voice Pipeline
+
+Full end-to-end voice control:
+
+```
+"Hey Clanker" → openWakeWord (local) → Whisper STT (local) → Clanker brain
+  → tool calls (HA control, memory) → response → Piper TTS (local) → speaker
+```
+
+All processing is local by default. Cloud LLM providers (Anthropic, OpenAI) are optional — route conversation tasks to Ollama for a fully offline setup.
+
+### Custom Wake Word
+
+Train "Hey Clanker" using openWakeWord (synthetic speech generation, no voice recording needed):
 
 ```bash
-# Install uv if you haven't
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install dependencies
-uv sync
-
-# Copy and edit config
-cp .env.example .env
-cp config/clanker.yaml.example config/clanker.yaml
-
-# Run
-uv run clanker
+pip install openwakeword tensorflow
+python -m clanker.setup.wakeword
+python -m clanker.setup.wakeword --deploy /share/openwakeword
 ```
 
 ## Configuration
@@ -107,8 +127,10 @@ Key sections:
 - **ha** — Home Assistant URL (token via `CLANKER_HA__TOKEN` env var)
 - **anthropic/openai/ollama** — LLM provider settings
 - **task_routes** — which provider handles which task type
-- **memory** — database and markdown paths
+- **memory** — database, markdown, and ChromaDB paths
+- **conversation** — voice pipeline settings (port, TTS engine, system prompt)
 - **announce** — room-to-speaker mapping, occupancy sensors, quiet hours
+- **frigate** — Frigate NVR connection and event filtering
 - **proactive** — morning briefing triggers
 
 ## Safety
@@ -124,7 +146,7 @@ See `docs/safety.md` for the full safety model.
 ## Development
 
 ```bash
-# Run tests
+# Run tests (127 tests)
 uv run pytest
 
 # Lint
@@ -137,23 +159,26 @@ uv run mypy clanker/
 ## Roadmap
 
 - [x] Project scaffold and config system
-- [x] LLM provider abstraction + Anthropic implementation
+- [x] LLM provider abstraction + Anthropic, OpenAI, and Ollama implementations
 - [x] HA WebSocket/REST client with reconnect
 - [x] Structured memory (SQLite)
-- [x] Announcement router with occupancy + quiet hours
-- [x] MCP tool server skeleton
-- [ ] OpenAI provider implementation
-- [ ] Ollama provider implementation
-- [ ] Frigate event integration
-- [ ] VLM vision pipeline
-- [ ] Double Take face recognition
-- [ ] Semantic memory embeddings (ChromaDB + Ollama)
-- [ ] Proactive scheduler + morning briefing
-- [ ] Event handlers (doorbell, appliance, critical, unknown person)
-- [ ] Remote push notifications with action buttons
-- [ ] HA custom conversation agent registration
+- [x] Semantic memory (markdown + ChromaDB vector search)
+- [x] Announcement router with occupancy + quiet hours + delivery
+- [x] MCP tool server
+- [x] Frigate event integration with dedup and snapshot fetching
+- [x] VLM vision pipeline
+- [x] Double Take face recognition integration
+- [x] Conversation agent with tool-calling loop + multi-turn sessions
+- [x] Conversation HTTP API server + HA custom component
+- [x] Voice pipeline (Whisper STT, Piper TTS, openWakeWord)
+- [x] Proactive scheduler (APScheduler)
+- [x] Morning briefing (motion-triggered, weather + home state)
+- [x] Event handlers (doorbell, appliance, critical alerts, unknown person)
+- [x] Setup wizards (CLI + web) with auto-discovery and deployment
+- [x] HA Add-on for one-click server deployment
+- [x] SSH remote deployment
+- [ ] Remote push notifications with action callbacks
 - [ ] Remote chat bot (Telegram/Signal)
-- [ ] Session management and multi-turn conversations
 
 ## License
 
