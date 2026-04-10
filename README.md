@@ -125,12 +125,18 @@ The add-on auto-configures everything — no manual token or config files needed
 
 ## Voice Pipeline
 
-Full end-to-end voice control:
+Full end-to-end voice control with two speed tiers:
 
 ```
-"Hey Clanker" → openWakeWord (local) → Whisper STT (local) → Clanker brain
-  → tool calls (HA control, memory) → response → Piper TTS (local) → speaker
+"Turn off the kitchen lights"
+  → openWakeWord → Whisper STT → HA intent fast-path (~50ms) → Piper TTS → speaker
+
+"Set the house to movie mode"
+  → openWakeWord → Whisper STT → no HA match → LLM brain (streaming TTS)
+  → first sentence spoken in ~0.3s → rest streams while speaking → speaker
 ```
+
+Simple commands (turn on/off, set brightness, get weather, media control, timers) are handled by HA's built-in intent matcher in <50ms without touching the LLM. Complex requests fall through to the brain with sentence-by-sentence streaming TTS — the speaker starts talking ~0.3s after generation begins instead of waiting for the full response.
 
 All processing is local by default. Cloud LLM providers (Anthropic, OpenAI) are optional — route conversation tasks to Ollama for a fully offline setup.
 
@@ -175,7 +181,7 @@ See `docs/safety.md` for the full safety model.
 ## Development
 
 ```bash
-# Run tests (149 tests)
+# Run tests (180 tests)
 uv run pytest
 
 # Lint
@@ -209,6 +215,14 @@ uv run mypy clanker/
 - [x] Telegram bot (remote chat + push with images and inline buttons)
 - [x] SMS via Twilio (alerts + bidirectional chat via text message)
 - [x] Unified push notification system (Telegram + SMS + HA mobile)
+- [x] Intent fast-path — <50ms via HA's built-in matcher for simple commands
+- [x] Streaming TTS — sentence-by-sentence delivery while LLM generates
+- [x] Token-aware context compaction (LLM-summarized, not just truncated)
+- [x] Session persistence (SQLite, survives restarts)
+- [x] Auto-RAG (memory injected into system prompt automatically)
+- [x] CI/CD (GitHub Actions: test matrix, lint, Docker image to GHCR)
+- [x] Pre-built OS images for mini PCs and Raspberry Pi 5
+- [x] Prompt injection defenses + verified identity setup
 
 ## License
 
