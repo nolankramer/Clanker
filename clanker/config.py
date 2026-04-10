@@ -132,6 +132,19 @@ class AnnounceConfig(BaseModel):
     tts_service: str = "tts.speak"
 
 
+class FrigateConfig(BaseModel):
+    """Frigate NVR connection settings."""
+
+    enabled: bool = False
+    url: str = "http://localhost:5000"
+    cooldown_seconds: float = 30.0
+    min_score: float = 0.6
+    cameras: list[str] = Field(
+        default_factory=list,
+        description="Camera names to monitor (empty = all)",
+    )
+
+
 class ProactiveConfig(BaseModel):
     """Proactive automation settings."""
 
@@ -204,6 +217,7 @@ class ClankerSettings(BaseSettings):
 
     memory: MemoryConfig = MemoryConfig()
     announce: AnnounceConfig = AnnounceConfig()
+    frigate: FrigateConfig = FrigateConfig()
     proactive: ProactiveConfig = ProactiveConfig()
     remote: RemoteConfig = RemoteConfig()
 

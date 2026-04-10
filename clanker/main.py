@@ -1,8 +1,8 @@
 """Clanker entrypoint — wires all modules together and manages lifecycle.
 
 Loads config, initializes subsystems (HA client, memory, brain, MCP server,
-event dispatcher, announcement router), subscribes to HA events, starts
-the proactive scheduler, and handles graceful shutdown on SIGTERM/SIGINT.
+event dispatcher, announcement router, Frigate, VLM), subscribes to HA
+events, and handles graceful shutdown on SIGTERM/SIGINT.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import structlog
 
-from clanker.config import load_settings
+from clanker.config import TaskType, load_settings
 from clanker.ha.client import HAClient
 from clanker.ha.events import EventDispatcher
 from clanker.logging import setup_logging
@@ -33,7 +33,7 @@ async def run() -> None:
 
     # Setup logging
     setup_logging(level=settings.log_level, json_output=settings.log_json)
-    logger.info("clanker.starting", version="0.1.0")
+    logger.info("clanker.starting", version="0.1.1")
 
     # Initialize memory
     structured_memory = StructuredMemory(settings.memory.db_path)
@@ -80,6 +80,41 @@ async def run() -> None:
 
     _announcement_router = AnnouncementRouter(ha_client, settings.announce)
 
+    # Initialize VLM (uses the vision-routed brain provider)
+    from clanker.vision.vlm import BrainVLM
+
+    vision_provider = brain.for_task(TaskType.VISION)
+    vlm = BrainVLM(vision_provider) if vision_provider.supports_vision else None
+
+    # Initialize Frigate event handler (if enabled)
+    from clanker.vision.frigate import FrigateEventHandler
+
+    frigate: FrigateEventHandler | None = None
+    if settings.frigate.enabled:
+        frigate = FrigateEventHandler(
+            ha_client=ha_client,
+            frigate_url=settings.frigate.url,
+            cooldown_seconds=settings.frigate.cooldown_seconds,
+            min_score=settings.frigate.min_score,
+            cameras=settings.frigate.cameras,
+        )
+        await frigate.start()
+        logger.info("clanker.frigate_started")
+
+    # Initialize face recognizer
+    from clanker.vision.faces import FaceRecognizer
+
+    face_recognizer = FaceRecognizer(
+        ha_client=ha_client,
+        memory=structured_memory,
+        vlm=vlm,
+    )
+    try:
+        await face_recognizer.start()
+        logger.info("clanker.faces_started")
+    except Exception:
+        logger.warning("clanker.faces_subscribe_failed", exc_info=True)
+
     # TODO: Initialize proactive scheduler
     # from clanker.proactive.scheduler import ProactiveScheduler
     # scheduler = ProactiveScheduler(...)
@@ -111,6 +146,8 @@ async def run() -> None:
     # TODO: Stop scheduler
     # await scheduler.stop()
 
+    if frigate:
+        await frigate.close()
     await brain.close()
     await ha_client.close()
     await structured_memory.close()

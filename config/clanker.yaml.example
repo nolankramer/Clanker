@@ -81,6 +81,14 @@ announce:
     - notify.mobile_app_my_phone
   tts_service: tts.speak
 
+# Frigate NVR integration
+frigate:
+  enabled: false
+  url: "http://localhost:5000"
+  cooldown_seconds: 30
+  min_score: 0.6
+  cameras: []  # empty = all cameras
+
 # Proactive automation
 proactive:
   morning_briefing_after_hour: 6
