@@ -62,6 +62,21 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 
 ## Install
 
+### Don't have any hardware yet?
+
+See the **[Hardware Guide](docs/hardware.md)** for specific product
+recommendations at every budget ($85 / $130 / $175) with links to buy.
+
+### Pre-built OS Image (easiest — no Linux experience needed)
+
+1. Download the image for your hardware from [Releases](https://github.com/nolankramer/clanker/releases):
+   - `clanker-x86_64-*.img.gz` for Intel mini PCs
+   - `clanker-arm64-*.img.gz` for Raspberry Pi 5
+2. Flash to SD card or USB with [Balena Etcher](https://etcher.balena.io/)
+3. Plug in and power on
+4. Open **http://clanker.local** from your phone or laptop
+5. Walk through the setup wizard — done
+
 ### One-liner (Linux/Mac)
 
 ```bash
