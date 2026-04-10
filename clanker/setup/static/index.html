@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clanker Setup</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #232340;
+    --border: #2d2d50;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #00d4ff;
+    --accent-dim: #0099bb;
+    --green: #00e676;
+    --red: #ff5252;
+    --yellow: #ffd740;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+  }
+
+  /* Step indicator */
+  .steps-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .step-dot {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    transition: all 0.3s;
+  }
+  .step-dot.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--surface);
+  }
+  .step-dot.done {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--surface);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    width: 100%;
+    max-width: 600px;
+    display: none;
+  }
+  .card.active { display: block; }
+  .card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .card p.desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Form elements */
+  .field {
+    margin-bottom: 1.25rem;
+  }
+  .field label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+  }
+  .field input::placeholder {
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 0.6rem 1.4rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover { background: var(--accent-dim); }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-test {
+    background: var(--surface2);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  .btn-test:hover { background: var(--accent-dim); color: var(--bg); }
+
+  .btn-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+  }
+
+  /* Status messages */
+  .status {
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    display: none;
+  }
+  .status.ok {
+    display: block;
+    background: rgba(0,230,118,0.1);
+    border: 1px solid rgba(0,230,118,0.3);
+    color: var(--green);
+  }
+  .status.err {
+    display: block;
+    background: rgba(255,82,82,0.1);
+    border: 1px solid rgba(255,82,82,0.3);
+    color: var(--red);
+  }
+  .status.loading {
+    display: block;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent);
+  }
+
+  /* Toggle switch */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-weight: 500; }
+  .toggle-label small { color: var(--text-dim); font-weight: 400; }
+  .toggle {
+    position: relative;
+    width: 48px; height: 26px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--surface2);
+    border-radius: 13px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .toggle .slider:before {
+    content: "";
+    position: absolute;
+    width: 20px; height: 20px;
+    left: 2px; bottom: 2px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .slider { background: var(--accent-dim); border-color: var(--accent); }
+  .toggle input:checked + .slider:before { transform: translateX(22px); background: var(--accent); }
+
+  /* Provider section */
+  .provider-section {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: opacity 0.2s;
+  }
+  .provider-section.disabled { opacity: 0.4; pointer-events: none; }
+  .provider-section h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Entity list */
+  .entity-list {
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .entity-item {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    border-radius: 4px;
+  }
+  .entity-item:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+  /* Review */
+  .review-block {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .review-block .key { color: var(--accent); }
+
+  .success-banner {
+    text-align: center;
+    padding: 2rem;
+  }
+  .success-banner .icon { font-size: 3rem; margin-bottom: 1rem; }
+  .success-banner h2 { color: var(--green); margin-bottom: 0.5rem; }
+  .success-banner code {
+    background: var(--surface2);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<h1>Clanker Setup</h1>
+<p class="subtitle">Configure your smart home brain</p>
+
+<div class="steps-bar">
+  <div class="step-dot active" id="dot-0">1</div>
+  <div class="step-dot" id="dot-1">2</div>
+  <div class="step-dot" id="dot-2">3</div>
+  <div class="step-dot" id="dot-3">4</div>
+  <div class="step-dot" id="dot-4">5</div>
+  <div class="step-dot" id="dot-5">6</div>
+</div>
+
+<!-- Step 0: Home Assistant -->
+<div class="card active" id="step-0">
+  <h2>Home Assistant</h2>
+  <p class="desc">Connect to your HA instance. You'll need a long-lived access token
+    (Profile &rarr; Security &rarr; Long-Lived Access Tokens).</p>
+  <div class="field">
+    <label>Home Assistant URL</label>
+    <input id="ha-url" type="text" value="http://localhost:8123" placeholder="http://homeassistant.local:8123">
+  </div>
+  <div class="field">
+    <label>Access Token</label>
+    <input id="ha-token" type="password" placeholder="Long-lived access token">
+  </div>
+  <button class="btn btn-test" onclick="testHA()">Test Connection</button>
+  <div class="status" id="ha-status"></div>
+  <div class="btn-row">
+    <span></span>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 1: LLM Providers -->
+<div class="card" id="step-1">
+  <h2>LLM Providers</h2>
+  <p class="desc">Choose which AI backends to use. Enable at least one.</p>
+
+  <div class="provider-section" id="anthropic-section">
+    <h3>
+      <label class="toggle"><input type="checkbox" id="anthropic-on" checked onchange="toggleProvider('anthropic')"><span class="slider"></span></label>
+      Anthropic (Claude)
+    </h3>
+    <div id="anthropic-fields">
+      <div class="field">
+        <label>API Key</label>
+        <input id="anthropic-key" type="password" placeholder="sk-ant-...">
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <input id="anthropic-model" type="text" value="claude-sonnet-4-20250514">
+      </div>
+      <button class="btn btn-test" onclick="testAnthropic()">Test</button>
+      <div class="status" id="anthropic-status"></div>
+    </div>
+  </div>
+
+  <div class="provider-section" id="openai-section">
+    <h3>
+      <label class="toggle"><input type="checkbox" id="openai-on" onchange="toggleProvider('openai')"><span class="slider"></span></label>
+      OpenAI
+    </h3>
+    <div id="openai-fields" style="display:none">
+      <div class="field">
+        <label>API Key</label>
+        <input id="openai-key" type="password" placeholder="sk-...">
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <input id="openai-model" type="text" value="gpt-4o">
+      </div>
+      <button class="btn btn-test" onclick="testOpenAI()">Test</button>
+      <div class="status" id="openai-status"></div>
+    </div>
+  </div>
+
+  <div class="provider-section" id="ollama-section">
+    <h3>
+      <label class="toggle"><input type="checkbox" id="ollama-on" checked onchange="toggleProvider('ollama')"><span class="slider"></span></label>
+      Ollama (Local)
+    </h3>
+    <div id="ollama-fields">
+      <div class="field">
+        <label>Ollama URL</label>
+        <input id="ollama-url" type="text" value="http://localhost:11434">
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <input id="ollama-model" type="text" value="llama3.2">
+      </div>
+      <button class="btn btn-test" onclick="testOllama()">Test</button>
+      <div class="status" id="ollama-status"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 2: Task Routing -->
+<div class="card" id="step-2">
+  <h2>Task Routing</h2>
+  <p class="desc">Choose which provider handles each task type.</p>
+
+  <div class="field">
+    <label>Vision (image analysis)</label>
+    <select id="route-vision"></select>
+  </div>
+  <div class="field">
+    <label>Reasoning (complex tasks)</label>
+    <select id="route-reasoning"></select>
+  </div>
+  <div class="field">
+    <label>Quick Intents (lights, switches)</label>
+    <select id="route-quick_intent"></select>
+  </div>
+  <div class="field">
+    <label>Summarization</label>
+    <select id="route-summarization"></select>
+  </div>
+  <div class="field">
+    <label>Conversation</label>
+    <select id="route-conversation"></select>
+  </div>
+  <div class="field">
+    <label>Default Provider</label>
+    <select id="default-provider"></select>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 3: Frigate -->
+<div class="card" id="step-3">
+  <h2>Frigate (Optional)</h2>
+  <p class="desc">Connect to Frigate NVR for camera-based detection and vision processing.</p>
+
+  <div class="toggle-row">
+    <span class="toggle-label">Enable Frigate<br><small>Camera detection via Frigate NVR</small></span>
+    <label class="toggle"><input type="checkbox" id="frigate-on"><span class="slider"></span></label>
+  </div>
+
+  <div id="frigate-fields" style="display:none; margin-top:1rem;">
+    <div class="field">
+      <label>Frigate URL</label>
+      <input id="frigate-url" type="text" value="http://localhost:5000">
+    </div>
+    <button class="btn btn-test" onclick="testFrigate()">Test Connection</button>
+    <div class="status" id="frigate-status"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 4: Entity Discovery -->
+<div class="card" id="step-4">
+  <h2>Entity Discovery</h2>
+  <p class="desc">Auto-discovered from Home Assistant. These configure announcement routing.</p>
+
+  <button class="btn btn-test" onclick="discoverEntities()" id="discover-btn">Discover Entities</button>
+  <div class="status" id="discover-status"></div>
+
+  <div id="discovery-results" style="display:none; margin-top:1rem;">
+    <div class="field">
+      <label>Speakers</label>
+      <div class="entity-list" id="entity-speakers"></div>
+    </div>
+    <div class="field">
+      <label>Occupancy Sensors</label>
+      <div class="entity-list" id="entity-occupancy"></div>
+    </div>
+    <div class="field">
+      <label>Inferred Rooms</label>
+      <div class="entity-list" id="entity-rooms"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 5: Review & Save -->
+<div class="card" id="step-5">
+  <h2>Review &amp; Save</h2>
+  <p class="desc">Review your configuration before writing files.</p>
+
+  <label style="font-size:0.85rem; color:var(--text-dim); margin-bottom:0.4rem; display:block;">config/clanker.yaml</label>
+  <div class="review-block" id="review-yaml"></div>
+
+  <label style="font-size:0.85rem; color:var(--text-dim); margin-bottom:0.4rem; display:block;">.env</label>
+  <div class="review-block" id="review-env"></div>
+
+  <div id="save-result"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+  </div>
+
+  <!-- Success state -->
+  <div class="success-banner" id="success-banner" style="display:none">
+    <div class="icon">&#10003;</div>
+    <h2>Setup Complete!</h2>
+    <p style="color:var(--text-dim); margin-bottom:1rem;">Your configuration has been saved.</p>
+    <p>Run Clanker:</p>
+    <p style="margin-top:0.5rem"><code>python -m clanker.main</code></p>
+  </div>
+</div>
+
+<script>
+let currentStep = 0;
+const totalSteps = 6;
+let discoveredEntities = {};
+let discoveredRooms = [];
+
+function showStep(n) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+  document.getElementById(`step-${n}`).classList.add('active');
+  for (let i = 0; i < totalSteps; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+  }
+  // Hooks on entering a step
+  if (n === 2) populateRouting();
+  if (n === 5) populateReview();
+}
+
+function next() {
+  if (currentStep < totalSteps - 1) {
+    currentStep++;
+    showStep(currentStep);
+  }
+}
+
+function prev() {
+  if (currentStep > 0) {
+    currentStep--;
+    showStep(currentStep);
+  }
+}
+
+function setStatus(id, cls, msg) {
+  const el = document.getElementById(id);
+  el.className = 'status ' + cls;
+  el.textContent = msg;
+}
+
+// -- Connection tests --
+
+async function api(endpoint, body) {
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  return resp.json();
+}
+
+async function testHA() {
+  setStatus('ha-status', 'loading', 'Testing...');
+  const r = await api('/api/test/ha', {
+    url: document.getElementById('ha-url').value,
+    token: document.getElementById('ha-token').value,
+  });
+  setStatus('ha-status', r.ok ? 'ok' : 'err', r.message);
+}
+
+async function testAnthropic() {
+  setStatus('anthropic-status', 'loading', 'Testing...');
+  const r = await api('/api/test/anthropic', {
+    api_key: document.getElementById('anthropic-key').value,
+  });
+  setStatus('anthropic-status', r.ok ? 'ok' : 'err', r.message);
+}
+
+async function testOpenAI() {
+  setStatus('openai-status', 'loading', 'Testing...');
+  const r = await api('/api/test/openai', {
+    api_key: document.getElementById('openai-key').value,
+  });
+  setStatus('openai-status', r.ok ? 'ok' : 'err', r.message);
+}
+
+async function testOllama() {
+  setStatus('ollama-status', 'loading', 'Testing...');
+  const r = await api('/api/test/ollama', {
+    base_url: document.getElementById('ollama-url').value,
+  });
+  setStatus('ollama-status', r.ok ? 'ok' : 'err', r.message);
+  if (r.ok && r.models && r.models.length) {
+    document.getElementById('ollama-model').value = r.models[0];
+  }
+}
+
+async function testFrigate() {
+  setStatus('frigate-status', 'loading', 'Testing...');
+  const r = await api('/api/test/frigate', {
+    url: document.getElementById('frigate-url').value,
+  });
+  setStatus('frigate-status', r.ok ? 'ok' : 'err', r.message);
+}
+
+// -- Provider toggles --
+
+function toggleProvider(name) {
+  const on = document.getElementById(`${name}-on`).checked;
+  const fields = document.getElementById(`${name}-fields`);
+  if (fields) fields.style.display = on ? 'block' : 'none';
+}
+
+// Frigate toggle
+document.getElementById('frigate-on').addEventListener('change', function() {
+  document.getElementById('frigate-fields').style.display = this.checked ? 'block' : 'none';
+});
+
+// -- Routing --
+
+function getEnabledProviders() {
+  const p = [];
+  if (document.getElementById('anthropic-on').checked) p.push('anthropic');
+  if (document.getElementById('openai-on').checked) p.push('openai');
+  if (document.getElementById('ollama-on').checked) p.push('ollama');
+  return p;
+}
+
+function populateRouting() {
+  const providers = getEnabledProviders();
+  const cloud = providers[0] || 'anthropic';
+  const local = providers.includes('ollama') ? 'ollama' : cloud;
+
+  const defaults = {
+    'route-vision': cloud,
+    'route-reasoning': cloud,
+    'route-quick_intent': local,
+    'route-summarization': local,
+    'route-conversation': cloud,
+    'default-provider': cloud,
+  };
+
+  for (const [id, def] of Object.entries(defaults)) {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = '';
+    for (const p of providers) {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      sel.appendChild(opt);
+    }
+    sel.value = providers.includes(current) ? current : def;
+  }
+}
+
+// -- Entity discovery --
+
+async function discoverEntities() {
+  setStatus('discover-status', 'loading', 'Discovering entities...');
+  const r = await api('/api/discover', {
+    url: document.getElementById('ha-url').value,
+    token: document.getElementById('ha-token').value,
+  });
+
+  discoveredEntities = r.entities || {};
+  discoveredRooms = r.rooms || [];
+
+  const speakers = discoveredEntities.speakers || [];
+  const occ = discoveredEntities.occupancy_sensors || [];
+
+  if (!speakers.length && !occ.length) {
+    setStatus('discover-status', 'err', 'No relevant entities found. Make sure HA has devices configured.');
+    return;
+  }
+
+  setStatus('discover-status', 'ok', `Found ${speakers.length} speaker(s), ${occ.length} occupancy sensor(s), ${discoveredRooms.length} room(s)`);
+  document.getElementById('discovery-results').style.display = 'block';
+
+  renderEntityList('entity-speakers', speakers);
+  renderEntityList('entity-occupancy', occ);
+  renderEntityList('entity-rooms', discoveredRooms.map(r => ({entity_id: r, name: r})));
+}
+
+function renderEntityList(containerId, items) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (const item of items) {
+    const div = document.createElement('div');
+    div.className = 'entity-item';
+    div.textContent = typeof item === 'string' ? item : `${item.entity_id} — ${item.name}`;
+    el.appendChild(div);
+  }
+  if (!items.length) {
+    el.innerHTML = '<div class="entity-item" style="color:var(--text-dim)">None found</div>';
+  }
+}
+
+// -- Build answers object --
+
+function buildAnswers() {
+  const answers = {};
+
+  answers.ha_url = document.getElementById('ha-url').value;
+  answers.ha_token = document.getElementById('ha-token').value;
+
+  answers.anthropic_enabled = document.getElementById('anthropic-on').checked;
+  if (answers.anthropic_enabled) {
+    answers.anthropic_key = document.getElementById('anthropic-key').value;
+    answers.anthropic_model = document.getElementById('anthropic-model').value;
+  }
+
+  answers.openai_enabled = document.getElementById('openai-on').checked;
+  if (answers.openai_enabled) {
+    answers.openai_key = document.getElementById('openai-key').value;
+    answers.openai_model = document.getElementById('openai-model').value;
+  }
+
+  answers.ollama_enabled = document.getElementById('ollama-on').checked;
+  if (answers.ollama_enabled) {
+    answers.ollama_url = document.getElementById('ollama-url').value;
+    answers.ollama_model = document.getElementById('ollama-model').value;
+  }
+
+  // Task routing
+  const tasks = ['vision', 'reasoning', 'quick_intent', 'summarization', 'conversation'];
+  answers.task_routes = {};
+  for (const t of tasks) {
+    const sel = document.getElementById(`route-${t}`);
+    if (sel) answers.task_routes[t] = sel.value;
+  }
+  const dp = document.getElementById('default-provider');
+  if (dp) answers.default_provider = dp.value;
+
+  // Frigate
+  answers.frigate_enabled = document.getElementById('frigate-on').checked;
+  if (answers.frigate_enabled) {
+    answers.frigate_url = document.getElementById('frigate-url').value;
+  }
+
+  // Room/speaker mappings from discovery
+  if (discoveredRooms.length) {
+    const speakers = discoveredEntities.speakers || [];
+    const occ = discoveredEntities.occupancy_sensors || [];
+    answers.room_speakers = [];
+    answers.occupancy_sensors = [];
+    for (const room of discoveredRooms) {
+      const matched = speakers.filter(s => s.entity_id.includes(room)).map(s => s.entity_id);
+      if (matched.length) answers.room_speakers.push({room, speaker_entity_ids: matched});
+      const occMatch = occ.filter(s => s.entity_id.includes(room));
+      if (occMatch.length) answers.occupancy_sensors.push({room, sensor_entity_id: occMatch[0].entity_id});
+    }
+    const notify = discoveredEntities.notify_services || [];
+    answers.push_targets = notify.filter(n => n.entity_id.includes('mobile')).map(n => n.entity_id).slice(0, 2);
+  }
+
+  return answers;
+}
+
+// -- Review --
+
+function populateReview() {
+  const answers = buildAnswers();
+
+  // Build a human-readable YAML preview
+  let yaml = '';
+  yaml += `ha:\n  url: "${answers.ha_url}"\n\n`;
+
+  if (answers.anthropic_enabled) {
+    yaml += `anthropic:\n  model: "${answers.anthropic_model}"\n  max_tokens: 4096\n\n`;
+  }
+  if (answers.openai_enabled) {
+    yaml += `openai:\n  model: "${answers.openai_model}"\n  max_tokens: 4096\n\n`;
+  }
+  if (answers.ollama_enabled) {
+    yaml += `ollama:\n  base_url: "${answers.ollama_url}"\n  model: "${answers.ollama_model}"\n  max_tokens: 4096\n\n`;
+  }
+
+  yaml += `default_provider: ${answers.default_provider}\n\n`;
+  yaml += `task_routes:\n`;
+  for (const [task, provider] of Object.entries(answers.task_routes || {})) {
+    yaml += `  - task: ${task}\n    provider: ${provider}\n`;
+  }
+
+  if (answers.frigate_enabled) {
+    yaml += `\nfrigate:\n  enabled: true\n  url: "${answers.frigate_url}"\n`;
+  }
+
+  yaml += `\nlog_level: INFO\n`;
+
+  document.getElementById('review-yaml').textContent = yaml;
+
+  // Env preview (mask secrets)
+  let env = '# Generated by clanker-setup\n';
+  if (answers.ha_token) env += `CLANKER_HA__TOKEN=****\n`;
+  if (answers.anthropic_key) env += `CLANKER_ANTHROPIC__API_KEY=****\n`;
+  if (answers.openai_key) env += `CLANKER_OPENAI__API_KEY=****\n`;
+
+  document.getElementById('review-env').textContent = env;
+}
+
+// -- Save --
+
+async function saveConfig() {
+  const answers = buildAnswers();
+  const r = await api('/api/config/save', {answers});
+
+  if (r.ok) {
+    document.getElementById('save-result').innerHTML = '';
+    // Hide the form elements, show success
+    document.querySelector('#step-5 .btn-row').style.display = 'none';
+    document.querySelectorAll('#step-5 .review-block, #step-5 label.review-label, #step-5 p.desc').forEach(e => e.style.display = 'none');
+    document.getElementById('success-banner').style.display = 'block';
+    // Mark final dot
+    document.getElementById(`dot-5`).classList.remove('active');
+    document.getElementById(`dot-5`).classList.add('done');
+  } else {
+    const el = document.getElementById('save-result');
+    el.innerHTML = `<div class="status err">${r.message || 'Failed to save'}</div>`;
+  }
+}
+
+// Init
+showStep(0);
+</script>
+</body>
+</html>
