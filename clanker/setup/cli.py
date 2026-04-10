@@ -515,6 +515,20 @@ def _step_deploy(answers: dict[str, Any]) -> None:
 
 def _step_save(answers: dict[str, Any]) -> None:
     _header(9, "Save Configuration")
+
+    # Validate before saving
+    from clanker.setup.validate import validate_config
+
+    issues = validate_config(answers)
+    if issues:
+        print(f"\n  {_YELLOW}{_BOLD}Warnings:{_RESET}")
+        for issue in issues:
+            print(f"  {_YELLOW}!{_RESET} {issue}")
+        print()
+        if not _confirm("Save anyway?", default=False):
+            print("  Fix the issues above and re-run setup.")
+            return
+
     yaml_content = generate_config(answers)
     env_content = generate_env(answers)
 

@@ -1,9 +1,17 @@
 # Clanker — assumes Home Assistant and Frigate are already running separately.
 # This compose file only runs the Clanker service itself.
+#
+# Quick start:
+#   cp .env.example .env && cp config/clanker.yaml.example config/clanker.yaml
+#   docker compose up -d
+#
+# To build locally instead of using the pre-built image:
+#   docker compose up -d --build
 
 services:
   clanker:
-    build: .
+    image: ghcr.io/nolankramer/clanker:latest
+    build: .  # falls back to local build if image unavailable
     container_name: clanker
     restart: unless-stopped
     env_file: .env
@@ -13,9 +21,9 @@ services:
     # Use host network to reach HA and Ollama on the same machine.
     # Switch to bridge + explicit ports if you prefer isolation.
     network_mode: host
-    # Healthcheck: verify the process is alive
+    # Healthcheck: hit the conversation API health endpoint
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8472/api/health')"]
       interval: 30s
       timeout: 5s
       retries: 3

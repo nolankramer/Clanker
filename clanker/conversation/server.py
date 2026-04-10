@@ -69,7 +69,11 @@ class ConversationServer:
                 twiml = await self._handle_sms_webhook(body)
                 await self._send_xml(writer, 200, twiml)
             elif method == "GET" and path == "/api/health":
-                await self._send_json(writer, 200, {"ok": True})
+                await self._send_json(writer, 200, {
+                    "ok": True,
+                    "version": "0.1.1",
+                    "sessions": self._agent.sessions.active_count,
+                })
             else:
                 await self._send_json(writer, 404, {"error": "not found"})
         except Exception:

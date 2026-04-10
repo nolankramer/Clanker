@@ -60,31 +60,44 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 - **Config-driven routing.** Which LLM handles which task type is config, not code.
 - **Local by default.** STT (Whisper), TTS (Piper), and LLM (Ollama) all run locally. Cloud providers are optional.
 
-## Quickstart
+## Install
 
-### Setup Wizard (recommended)
+### One-liner (Linux/Mac)
 
 ```bash
-pip install -e .
+curl -fsSL https://raw.githubusercontent.com/nolankramer/clanker/main/install.sh | bash
+```
+
+This clones the repo, installs [uv](https://docs.astral.sh/uv/), installs dependencies, and launches the setup wizard.
+
+### Setup Wizard
+
+```bash
 clanker-setup           # Interactive CLI wizard
 clanker-setup --web     # Browser-based wizard at localhost:8471
 ```
 
-The wizard auto-discovers Home Assistant, tests connections, discovers entities, configures voice pipeline, and offers three deployment modes:
-
-1. **HA Add-on** — One-click install from HA's add-on store (recommended for HA OS)
-2. **Remote SSH** — Deploy to any server with Docker
-3. **Local** — Run on your machine
-
-See `docs/quickstart.md` for the full guide.
+The wizard:
+1. Auto-discovers Home Assistant on your network
+2. Tests connections to HA, LLM providers, Frigate
+3. Discovers speakers, sensors, and rooms from HA
+4. Configures voice pipeline (TTS, STT, wake word)
+5. Sets up Telegram/SMS with identity verification
+6. Offers three deployment modes:
+   - **HA Add-on** — one-click install (recommended for HA OS)
+   - **Remote SSH** — deploy to any server with Docker
+   - **Local** — run on your machine
+7. Validates config and saves
 
 ### Docker
 
 ```bash
-cp .env.example .env
-cp config/clanker.yaml.example config/clanker.yaml
-# Edit both files
+# Using pre-built image (fastest)
+docker pull ghcr.io/nolankramer/clanker:latest
 
+# Or clone and build locally
+git clone https://github.com/nolankramer/clanker && cd clanker
+cp .env.example .env && cp config/clanker.yaml.example config/clanker.yaml
 docker compose up -d
 ```
 
@@ -94,7 +107,7 @@ docker compose up -d
 2. Add `https://github.com/nolankramer/clanker`
 3. Install Clanker, configure API keys, start
 
-The add-on auto-installs the HA custom component, generates config, and gets the auth token from HA's Supervisor — no manual setup needed.
+The add-on auto-configures everything — no manual token or config files needed.
 
 ## Voice Pipeline
 
