@@ -24,6 +24,7 @@ from clanker.conversation.session import Session, SessionStore
 if TYPE_CHECKING:
     from clanker.brain.base import LLMProvider
     from clanker.ha.client import HAClient
+    from clanker.ha.services import HAServices
     from clanker.memory.tools import MemoryTools
 
 logger = structlog.get_logger(__name__)
@@ -162,6 +163,7 @@ class ConversationAgent:
         ha_client: HAClient,
         memory_tools: MemoryTools,
         *,
+        ha_services: HAServices | None = None,
         system_prompt: str = _DEFAULT_SYSTEM_PROMPT,
         session_ttl: float = 600.0,
         db_path: str | None = None,
@@ -170,6 +172,7 @@ class ConversationAgent:
         self._brain = brain
         self._ha = ha_client
         self._memory = memory_tools
+        self._ha_services = ha_services
         self._system_prompt = system_prompt
         self._sessions = SessionStore(
             db_path=db_path,
@@ -197,8 +200,22 @@ class ConversationAgent:
         conversation_id: str | None = None,
         language: str = "en",
         device_id: str | None = None,
+        speakers: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Process user input and return a response."""
+        """Process user input and return a response.
+
+        Args:
+            text: User's spoken or typed text.
+            conversation_id: Session ID for multi-turn.
+            language: Language code.
+            device_id: HA device that originated the request.
+            speakers: Optional TTS speakers for streaming delivery.
+                When provided, the response is streamed sentence-by-sentence
+                to these speakers for lower latency.
+
+        Returns:
+            Dict with ``speech``, ``conversation_id``, ``continue_conversation``.
+        """
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
 
@@ -210,6 +227,7 @@ class ConversationAgent:
             conversation_id=conversation_id,
             text=text[:80],
             tokens=session.token_estimate,
+            streaming=bool(speakers),
         )
 
         # Auto-RAG: inject relevant memory context
@@ -219,8 +237,10 @@ class ConversationAgent:
         if session.needs_compaction(self._sessions.max_context_tokens):
             await self._compact_session(session)
 
-        # Run the agent loop
-        response_text = await self._run_agent_loop(session, system_prompt)
+        # Run the agent loop (with optional streaming TTS)
+        response_text = await self._run_agent_loop(
+            session, system_prompt, speakers=speakers
+        )
 
         session.add(Role.ASSISTANT, response_text)
 
@@ -311,12 +331,23 @@ class ConversationAgent:
     # ------------------------------------------------------------------
 
     async def _run_agent_loop(
-        self, session: Session, system_prompt: str
+        self,
+        session: Session,
+        system_prompt: str,
+        *,
+        speakers: list[str] | None = None,
     ) -> str:
-        """Run the tool-calling loop until the brain produces a response."""
+        """Run the tool-calling loop until the brain produces a response.
+
+        If speakers are provided and streaming TTS is available, the final
+        text response is streamed sentence-by-sentence to speakers for
+        lower perceived latency.
+        """
         for _round in range(MAX_TOOL_ROUNDS):
             messages = session.get_messages_for_brain()
 
+            # On the last round (or when no tools are expected),
+            # try streaming for lower latency TTS
             response = await self._brain.chat(
                 messages,
                 system=system_prompt,
@@ -324,7 +355,15 @@ class ConversationAgent:
             )
 
             if not response.tool_calls:
-                return response.content or "Sorry, I didn't have a response."
+                text = response.content or "Sorry, I didn't have a response."
+
+                # Stream the response to speakers if available
+                if speakers and self._ha_services:
+                    await self._stream_to_speakers(
+                        text, speakers, session, system_prompt
+                    )
+
+                return text
 
             for tc in response.tool_calls:
                 result = await self._execute_tool(tc)
@@ -344,6 +383,46 @@ class ConversationAgent:
                 )
 
         return "I'm having trouble completing that request. Could you try again?"
+
+    async def _stream_to_speakers(
+        self,
+        fallback_text: str,
+        speakers: list[str],
+        session: Session,
+        system_prompt: str,
+    ) -> None:
+        """Stream the response to TTS speakers sentence-by-sentence.
+
+        Uses the brain's streaming API to start TTS as soon as the first
+        sentence is complete, rather than waiting for the full response.
+        Falls back to speaking the full text if streaming fails.
+        """
+        if not self._ha_services:
+            return
+
+        from clanker.conversation.streaming import StreamingTTS
+
+        streamer = StreamingTTS(self._ha_services, speakers=speakers)
+
+        try:
+            messages = session.get_messages_for_brain()
+            streamed_text = await streamer.stream_and_speak(
+                self._brain,
+                messages,
+                system=system_prompt,
+                tools=TOOL_DEFINITIONS,
+            )
+            if streamed_text:
+                return  # successfully streamed
+        except Exception:
+            logger.warning("conversation.streaming_failed", exc_info=True)
+
+        # Fallback: speak the full text at once
+        for speaker in speakers:
+            try:
+                await self._ha_services.tts_speak(speaker, fallback_text)
+            except Exception:
+                logger.exception("conversation.tts_fallback_error")
 
     async def _execute_tool(self, tool_call: ToolCall) -> Any:
         """Execute a single tool call and return the result."""

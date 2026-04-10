@@ -183,6 +183,7 @@ async def run() -> None:
         brain=conversation_brain,
         ha_client=ha_client,
         memory_tools=memory_tools,
+        ha_services=ha_services,
         **({"system_prompt": system_prompt} if system_prompt else {}),
         session_ttl=settings.conversation.session_ttl_seconds,
         db_path=settings.memory.db_path.replace(".db", "_sessions.db"),
