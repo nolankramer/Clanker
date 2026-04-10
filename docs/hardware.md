@@ -60,6 +60,63 @@ With 32GB RAM you can run larger Ollama models (13B+) for better reasoning.
 
 ---
 
+## GPU-Accelerated LLM Inference
+
+The configurations above use CPU-only inference, which is fine for small
+models but slow (~5-15 tok/s on an N100). A GPU dramatically improves
+response time for the LLM brain.
+
+> **Note:** The intent fast-path handles most simple commands (~50ms)
+> without the LLM. GPU acceleration mainly benefits complex/conversational
+> requests that go through the brain.
+
+### Budget GPU: Used RTX 3060 12GB (~$200 used)
+
+~50-65 tokens/second on Llama 3.1 8B. Best bang for buck.
+Put it in any desktop PC or workstation with a PCIe x16 slot + 500W PSU.
+
+### Mid-Range: RTX 4060 Ti 16GB (~$400 new)
+
+~80-100 tokens/second. Sweet spot for price/performance.
+16GB VRAM comfortably runs 7-8B models with headroom.
+
+### High-End: Used RTX 3090 24GB (~$800 used)
+
+~90-110 tokens/second + 24GB VRAM. Runs 13B models fully offloaded
+and even 70B models at heavy quantization. Best value for serious use.
+
+### Silent/Low Power: Mac Mini M4 Pro (~$1,400 new)
+
+~40-55 tokens/second. Silent (fanless under load), tiny, 30W power.
+Unified memory means no separate GPU needed. Good if you value
+aesthetics and silence over raw speed.
+
+### Ultra-Budget: Used Tesla P40 24GB (~$150 used)
+
+~35-45 tokens/second. No video output (headless server only).
+Needs a blower cooler mod and 8-pin EPS power. But 24GB VRAM
+for $150 is unbeatable for running larger models on a budget.
+
+### What about NPUs?
+
+Intel Core Ultra and AMD Ryzen AI chips have built-in NPUs, but these
+**don't work with Ollama** and are too slow for LLM inference (~5-15
+tok/s). They're designed for lightweight tasks, not running a 7B model.
+Stick with a GPU if you want fast local inference.
+
+### Quick Reference
+
+| Hardware | ~Tok/s (8B model) | ~Price | VRAM | Power |
+|----------|-------------------|--------|------|-------|
+| Intel N100 (CPU only) | 5-15 | $120 | — | 15W |
+| Tesla P40 (used) | 35-45 | $150 | 24GB | 250W |
+| RTX 3060 12GB (used) | 50-65 | $200 | 12GB | 170W |
+| Mac Mini M4 Pro | 40-55 | $1,400 | 24GB shared | 30W |
+| RTX 4060 Ti 16GB | 80-100 | $400 | 16GB | 165W |
+| RTX 3090 24GB (used) | 90-110 | $800 | 24GB | 350W |
+
+---
+
 ## How to Set Up
 
 ### Option A: Flash the Clanker OS image (easiest)
