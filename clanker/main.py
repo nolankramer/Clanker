@@ -185,7 +185,9 @@ async def run() -> None:
         memory_tools=memory_tools,
         **({"system_prompt": system_prompt} if system_prompt else {}),
         session_ttl=settings.conversation.session_ttl_seconds,
+        db_path=settings.memory.db_path.replace(".db", "_sessions.db"),
     )
+    await conversation_agent.initialize()
 
     # Wire agent into SMS for inbound message handling
     if sms:
@@ -264,6 +266,7 @@ async def run() -> None:
     if sms:
         await sms.close()
     await conversation_server.stop()
+    await conversation_agent.close()
     if frigate:
         await frigate.close()
     await brain.close()
