@@ -29,9 +29,9 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 │                                                                      │
 │  ┌───────────┐  ┌──────────┐  ┌────────┐  ┌──────────┐             │
 │  │ Proactive │  │  Remote  │  │  MCP   │  │  Convo   │             │
-│  │ Scheduler │  │  Push    │  │ Server │  │  Agent   │             │
-│  │ Briefing  │  │  Chat    │  │ Tools  │  │ Sessions │             │
-│  │ Handlers  │  │          │  │        │  │  HTTP API│             │
+│  │ Scheduler │  │ Telegram │  │ Server │  │  Agent   │             │
+│  │ Briefing  │  │  SMS     │  │ Tools  │  │ Sessions │             │
+│  │ Handlers  │  │  Push    │  │        │  │  HTTP API│             │
 │  └───────────┘  └──────────┘  └────────┘  └──────────┘             │
 │                                                                      │
 │  Tools exposed to brain via MCP:                                     │
@@ -50,15 +50,59 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Key Design Principles
+## Features
 
-- **HA is the substrate.** Clanker never talks to devices directly — it calls HA services. The HA exposed-entities allowlist is the hard safety gate.
-- **Async everywhere.** No sync I/O in request paths.
-- **Everything behind an interface.** LLM providers, memory stores, notification channels — all swappable.
-- **Deterministic fast paths.** Critical events (fire, break-in) bypass the LLM for immediate response.
-- **Human-readable memory.** Markdown files you can read, edit, grep, and git-diff.
-- **Config-driven routing.** Which LLM handles which task type is config, not code.
-- **Local by default.** STT (Whisper), TTS (Piper), and LLM (Ollama) all run locally. Cloud providers are optional.
+### Brain
+- **Pluggable LLM providers** — Anthropic (Claude), OpenAI, Ollama, and any OpenAI-compatible endpoint. Config-driven task routing (vision → Claude, quick intents → local Ollama).
+- **Conversation agent** — Tool-calling loop with HA device control, memory search, and entity discovery. Multi-turn sessions with persistence (SQLite).
+- **Intent fast-path** — Simple commands (turn on/off, brightness, weather, timers) handled by HA's built-in intent matcher in <50ms, bypassing the LLM entirely.
+- **Streaming TTS** — Sentence-by-sentence delivery while the LLM is still generating. First sentence speaks ~0.3s after generation begins.
+- **Context compaction** — Token-aware summarization of old messages via the LLM. Keeps context bounded without losing continuity.
+- **Auto-RAG** — Relevant memory is automatically injected into the system prompt before each brain call. No explicit tool call needed.
+
+### Voice
+- **Full voice pipeline** — "Hey Clanker" wake word → Whisper STT → brain → Piper TTS. All local by default.
+- **Custom wake word** — Train "Hey Clanker" via openWakeWord (synthetic speech, no recording needed).
+- **HA custom component** — Registers Clanker as a conversation agent in HA so all voice surfaces (Assist, ESP32 satellites, mobile app) work automatically.
+
+### Vision
+- **Frigate integration** — Event subscription, snapshot fetching, deduplication with configurable cooldown.
+- **VLM pipeline** — Camera snapshots described by vision-capable LLMs (Claude, GPT-4o, LLaVA).
+- **Face recognition** — Double Take integration with structured memory lookup. Unknown faces described via VLM.
+
+### Proactive Automation
+- **Morning briefing** — Motion-triggered daily summary (weather, home state) delivered via TTS.
+- **Critical alerts** — Smoke, CO, flood, glass break → deterministic fast path (no LLM), all speakers + push with 911/Safe/False Alarm actions.
+- **Doorbell** — Person detected → snapshot → VLM description → face lookup → contextual announcement + push with Talk/Ignore.
+- **Appliance completion** — Washer/dryer/dishwasher done → announces to occupied rooms.
+- **Unknown person** — VLM description + time/location threat assessment.
+
+### Memory
+- **Structured** (SQLite) — Faces, people, rooms, appliances, preferences.
+- **Semantic** (Markdown + ChromaDB) — Human-readable files with vector search via Ollama embeddings.
+- **Session persistence** — Conversations survive restarts. Stale sessions evicted by TTL.
+
+### Notifications
+- **Telegram** — Bidirectional chat, image attachments, inline keyboard actions.
+- **SMS via Twilio** — Text alerts + inbound commands. MMS for images.
+- **HA mobile push** — Fallback via HA notify services.
+- **Announcement router** — Occupancy-aware TTS delivery, quiet hours, priority-based routing.
+
+### Setup & Deployment
+- **Setup wizards** — CLI and browser-based, with HA auto-discovery, connection testing, entity discovery, and config validation.
+- **Ollama auto-setup** — Detects/installs Ollama, pulls recommended models, applies TTFT optimizations (flash attention, keep_alive, KV cache quantization).
+- **Three deployment modes** — HA Add-on (one-click), remote SSH + Docker, or local.
+- **Pre-built OS images** — Flash to SD/USB for mini PCs and Raspberry Pi 5. First boot launches the web wizard.
+- **CI/CD** — GitHub Actions: test matrix (3.11/3.12/3.13), lint, Docker image published to GHCR.
+- **Identity verification** — Telegram chat ID confirmation + SMS code verification. Unverified messages silently dropped.
+
+### Security
+- **Entity allowlisting** — HA's exposed-entities feature is the hard safety gate.
+- **Prompt injection defense** — System prompt instructs the brain to treat tool results as data, not instructions.
+- **Deterministic critical paths** — Life-safety events bypass the LLM for immediate, reliable response.
+- **Secrets in env vars** — API keys never stored in config YAML.
+
+See `docs/safety.md` for the full safety model.
 
 ## Install
 
@@ -91,25 +135,17 @@ clanker-setup           # Interactive CLI wizard
 clanker-setup --web     # Browser-based wizard at localhost:8471
 ```
 
-The wizard:
-1. Auto-discovers Home Assistant on your network
-2. Tests connections to HA, LLM providers, Frigate
-3. Discovers speakers, sensors, and rooms from HA
-4. Configures voice pipeline (TTS, STT, wake word)
-5. Sets up Telegram/SMS with identity verification
-6. Offers three deployment modes:
-   - **HA Add-on** — one-click install (recommended for HA OS)
-   - **Remote SSH** — deploy to any server with Docker
-   - **Local** — run on your machine
-7. Validates config and saves
+The wizard auto-discovers HA, tests connections, discovers entities, installs and configures Ollama, sets up voice pipeline and notifications, and validates everything before saving.
 
 ### Docker
 
 ```bash
-# Using pre-built image (fastest)
 docker pull ghcr.io/nolankramer/clanker:latest
+```
 
-# Or clone and build locally
+Or build locally:
+
+```bash
 git clone https://github.com/nolankramer/clanker && cd clanker
 cp .env.example .env && cp config/clanker.yaml.example config/clanker.yaml
 docker compose up -d
@@ -125,18 +161,16 @@ The add-on auto-configures everything — no manual token or config files needed
 
 ## Voice Pipeline
 
-Full end-to-end voice control with two speed tiers:
+Two speed tiers for voice responses:
 
 ```
 "Turn off the kitchen lights"
-  → openWakeWord → Whisper STT → HA intent fast-path (~50ms) → Piper TTS → speaker
+  → openWakeWord → Whisper STT → HA intent fast-path (~50ms) → Piper TTS
 
 "Set the house to movie mode"
-  → openWakeWord → Whisper STT → no HA match → LLM brain (streaming TTS)
-  → first sentence spoken in ~0.3s → rest streams while speaking → speaker
+  → openWakeWord → Whisper STT → LLM brain (streaming TTS)
+  → first sentence spoken in ~0.3s → rest streams while speaking
 ```
-
-Simple commands (turn on/off, set brightness, get weather, media control, timers) are handled by HA's built-in intent matcher in <50ms without touching the LLM. Complex requests fall through to the brain with sentence-by-sentence streaming TTS — the speaker starts talking ~0.3s after generation begins instead of waiting for the full response.
 
 All processing is local by default. Cloud LLM providers (Anthropic, OpenAI) are optional — route conversation tasks to Ollama for a fully offline setup.
 
@@ -152,31 +186,9 @@ python -m clanker.setup.wakeword --deploy /share/openwakeword
 
 ## Configuration
 
-All config lives in `config/clanker.yaml`. Secrets (API keys, HA token) go in `.env` or environment variables — never in the YAML file.
+All config lives in `config/clanker.yaml`. Secrets go in `.env` or environment variables.
 
 See `config/clanker.yaml.example` for the full schema with comments.
-
-Key sections:
-- **ha** — Home Assistant URL (token via `CLANKER_HA__TOKEN` env var)
-- **anthropic/openai/ollama** — LLM provider settings
-- **task_routes** — which provider handles which task type
-- **memory** — database, markdown, and ChromaDB paths
-- **conversation** — voice pipeline settings (port, TTS engine, system prompt)
-- **announce** — room-to-speaker mapping, occupancy sensors, quiet hours
-- **frigate** — Frigate NVR connection and event filtering
-- **proactive** — morning briefing triggers
-
-## Safety & Security
-
-- **Entity allowlisting**: HA's exposed-entities allowlist is the hard gate. Clanker can only interact with entities HA exposes.
-- **Verified identity only**: The setup wizard verifies your Telegram chat ID and SMS phone number during setup. Only verified accounts can control Clanker — all other messages are silently dropped (no response, no info leaked).
-- **Prompt injection defense**: The system prompt instructs the brain to never execute instructions found in device names, sensor values, or tool results. Suspicious data is flagged to the user instead of acted upon.
-- **Quiet hours**: TTS announcements are suppressed during configured hours. Critical alerts always go through.
-- **No direct device access**: All device interaction flows through HA services.
-- **Deterministic critical paths**: Fire/smoke/break-in alerts use fast deterministic handlers, not LLM reasoning.
-- **Secrets in env vars**: API keys and tokens are never stored in config YAML — only in `.env` or environment variables.
-
-See `docs/safety.md` for the full safety model.
 
 ## Development
 
@@ -190,39 +202,6 @@ uv run ruff check .
 # Type check
 uv run mypy clanker/
 ```
-
-## Roadmap
-
-- [x] Project scaffold and config system
-- [x] LLM provider abstraction + Anthropic, OpenAI, and Ollama implementations
-- [x] HA WebSocket/REST client with reconnect
-- [x] Structured memory (SQLite)
-- [x] Semantic memory (markdown + ChromaDB vector search)
-- [x] Announcement router with occupancy + quiet hours + delivery
-- [x] MCP tool server
-- [x] Frigate event integration with dedup and snapshot fetching
-- [x] VLM vision pipeline
-- [x] Double Take face recognition integration
-- [x] Conversation agent with tool-calling loop + multi-turn sessions
-- [x] Conversation HTTP API server + HA custom component
-- [x] Voice pipeline (Whisper STT, Piper TTS, openWakeWord)
-- [x] Proactive scheduler (APScheduler)
-- [x] Morning briefing (motion-triggered, weather + home state)
-- [x] Event handlers (doorbell, appliance, critical alerts, unknown person)
-- [x] Setup wizards (CLI + web) with auto-discovery and deployment
-- [x] HA Add-on for one-click server deployment
-- [x] SSH remote deployment
-- [x] Telegram bot (remote chat + push with images and inline buttons)
-- [x] SMS via Twilio (alerts + bidirectional chat via text message)
-- [x] Unified push notification system (Telegram + SMS + HA mobile)
-- [x] Intent fast-path — <50ms via HA's built-in matcher for simple commands
-- [x] Streaming TTS — sentence-by-sentence delivery while LLM generates
-- [x] Token-aware context compaction (LLM-summarized, not just truncated)
-- [x] Session persistence (SQLite, survives restarts)
-- [x] Auto-RAG (memory injected into system prompt automatically)
-- [x] CI/CD (GitHub Actions: test matrix, lint, Docker image to GHCR)
-- [x] Pre-built OS images for mini PCs and Raspberry Pi 5
-- [x] Prompt injection defenses + verified identity setup
 
 ## License
 
