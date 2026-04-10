@@ -14,9 +14,10 @@ TODO:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Coroutine
+from enum import StrEnum
+from typing import Any
 
 import structlog
 
@@ -26,7 +27,7 @@ logger = structlog.get_logger(__name__)
 EventHandler = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Known HA event types that Clanker subscribes to."""
 
     STATE_CHANGED = "state_changed"
@@ -70,7 +71,9 @@ class EventDispatcher:
         if not handlers:
             return
 
-        logger.debug("event_dispatcher.dispatch", event_type=event_type, handler_count=len(handlers))
+        logger.debug(
+            "event_dispatcher.dispatch", event_type=event_type, handler_count=len(handlers)
+        )
 
         for handler in handlers:
             try:

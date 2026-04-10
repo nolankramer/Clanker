@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING
 import structlog
 
 from clanker.brain.anthropic import AnthropicProvider
-from clanker.brain.base import LLMProvider
 from clanker.brain.ollama import OllamaProvider
 from clanker.brain.openai import OpenAIProvider
 from clanker.config import ProviderName, TaskType
 
 if TYPE_CHECKING:
+    from clanker.brain.base import LLMProvider
     from clanker.config import ClankerSettings
 
 logger = structlog.get_logger(__name__)

@@ -8,7 +8,7 @@ not in this component.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from homeassistant.components.conversation import (
@@ -16,14 +16,12 @@ from homeassistant.components.conversation import (
     ConversationInput,
     ConversationResult,
 )
-from homeassistant.components.conversation.const import HOME_ASSISTANT_AGENT
-from homeassistant.components.homeassistant.exposed_entities import (
-    async_should_expose,
-)
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.intent import IntentResponse
 
 from . import DEFAULT_URL, DOMAIN
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 

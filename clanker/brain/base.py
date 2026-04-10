@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, AsyncIterator
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     """Chat message roles."""
 
     SYSTEM = "system"
@@ -160,5 +163,5 @@ class LLMProvider(ABC):
         """
         raise NotImplementedError(f"{self.name} does not support vision")
 
-    async def close(self) -> None:
+    async def close(self) -> None:  # noqa: B027 — intentionally non-abstract default
         """Release any resources held by the provider."""

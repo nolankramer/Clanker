@@ -6,7 +6,7 @@ alerts (fire, break-in, etc.) always go through.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
@@ -34,7 +34,7 @@ def is_quiet_hours(
 ) -> bool:
     """Check whether the current time falls within quiet hours.
 
-    Handles overnight ranges (e.g. 22:00–07:00) correctly.
+    Handles overnight ranges (e.g. 22:00-07:00) correctly.
 
     Args:
         config: Quiet hours configuration.
@@ -47,14 +47,14 @@ def is_quiet_hours(
         return False
 
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     hour = now.hour
 
     if config.start_hour > config.end_hour:
-        # Overnight range: e.g. 22–7 means 22,23,0,1,2,3,4,5,6
+        # Overnight range: e.g. 22-7 means 22,23,0,1,2,3,4,5,6
         return hour >= config.start_hour or hour < config.end_hour
-    # Same-day range: e.g. 13–15
+    # Same-day range: e.g. 13-15
     return config.start_hour <= hour < config.end_hour
 
 

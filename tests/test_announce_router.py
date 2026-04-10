@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -17,35 +17,34 @@ from clanker.config import (
     RoomSpeaker,
 )
 
-
 # ---------------------------------------------------------------------------
 # Quiet hours
 # ---------------------------------------------------------------------------
 
 
 def test_quiet_hours_overnight() -> None:
-    """22:00–07:00 range detects quiet hours correctly."""
+    """22:00-07:00 range detects quiet hours correctly."""
     config = QuietHoursConfig(enabled=True, start_hour=22, end_hour=7)
 
-    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 23, 0, tzinfo=timezone.utc))
-    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc))
-    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 3, 30, tzinfo=timezone.utc))
-    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 6, 59, tzinfo=timezone.utc))
-    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 7, 0, tzinfo=timezone.utc))
-    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
-    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 21, 59, tzinfo=timezone.utc))
+    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 23, 0, tzinfo=UTC))
+    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 0, 0, tzinfo=UTC))
+    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 3, 30, tzinfo=UTC))
+    assert is_quiet_hours(config, now=datetime(2025, 1, 1, 6, 59, tzinfo=UTC))
+    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 7, 0, tzinfo=UTC))
+    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 12, 0, tzinfo=UTC))
+    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 21, 59, tzinfo=UTC))
 
 
 def test_quiet_hours_disabled() -> None:
     """Disabled quiet hours never suppress."""
     config = QuietHoursConfig(enabled=False, start_hour=22, end_hour=7)
-    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 23, 0, tzinfo=timezone.utc))
+    assert not is_quiet_hours(config, now=datetime(2025, 1, 1, 23, 0, tzinfo=UTC))
 
 
 def test_should_suppress_critical() -> None:
     """Critical priority is never suppressed."""
     config = QuietHoursConfig(enabled=True, start_hour=22, end_hour=7)
-    midnight = datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc)
+    midnight = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
     assert not should_suppress(config, Priority.CRITICAL, now=midnight)
     assert not should_suppress(config, Priority.HIGH, now=midnight)
     assert should_suppress(config, Priority.NORMAL, now=midnight)
@@ -131,7 +130,7 @@ async def test_route_normal_occupied(announce_config: AnnounceConfig) -> None:
     targets = await router.route(
         "Laundry is done",
         Priority.NORMAL,
-        now=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2025, 1, 1, 14, 0, tzinfo=UTC),
     )
 
     assert not targets.suppressed
@@ -148,7 +147,7 @@ async def test_route_no_one_home_falls_back_to_push(announce_config: AnnounceCon
     targets = await router.route(
         "Package delivered",
         Priority.NORMAL,
-        now=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2025, 1, 1, 14, 0, tzinfo=UTC),
     )
 
     assert targets.tts_speakers == []
@@ -163,7 +162,7 @@ async def test_route_quiet_hours_suppresses_tts(announce_config: AnnounceConfig)
     targets = await router.route(
         "Laundry done",
         Priority.NORMAL,
-        now=datetime(2025, 1, 1, 23, 30, tzinfo=timezone.utc),
+        now=datetime(2025, 1, 1, 23, 30, tzinfo=UTC),
     )
 
     assert targets.suppressed
@@ -179,7 +178,7 @@ async def test_route_critical_goes_everywhere(announce_config: AnnounceConfig) -
     targets = await router.route(
         "FIRE ALARM",
         Priority.CRITICAL,
-        now=datetime(2025, 1, 1, 3, 0, tzinfo=timezone.utc),  # quiet hours
+        now=datetime(2025, 1, 1, 3, 0, tzinfo=UTC),  # quiet hours
     )
 
     assert not targets.suppressed
@@ -198,7 +197,7 @@ async def test_route_audience_room_filter(announce_config: AnnounceConfig) -> No
         "Office-only message",
         Priority.NORMAL,
         audience=AudienceRules(rooms=["office"]),
-        now=datetime(2025, 1, 1, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2025, 1, 1, 14, 0, tzinfo=UTC),
     )
 
     assert targets.tts_speakers == ["media_player.office"]

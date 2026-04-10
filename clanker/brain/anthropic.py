@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -19,6 +19,8 @@ from clanker.brain.base import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from anthropic import AsyncAnthropic
 
     from clanker.config import AnthropicConfig

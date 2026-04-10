@@ -6,7 +6,7 @@ only be set via environment variables or .env, never in the YAML file.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     """Task categories for LLM routing."""
 
     VISION = "vision"
@@ -25,7 +25,7 @@ class TaskType(str, Enum):
     CONVERSATION = "conversation"
 
 
-class ProviderName(str, Enum):
+class ProviderName(StrEnum):
     """Supported LLM provider identifiers."""
 
     ANTHROPIC = "anthropic"

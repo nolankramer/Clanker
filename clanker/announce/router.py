@@ -13,7 +13,6 @@ of occupancy or quiet hours.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import structlog
@@ -22,6 +21,8 @@ from clanker.announce.occupancy import get_occupied_rooms, get_speakers_for_room
 from clanker.announce.quiet_hours import Priority, should_suppress
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from clanker.config import AnnounceConfig
     from clanker.ha.client import HAClient
 

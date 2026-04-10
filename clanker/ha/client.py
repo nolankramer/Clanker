@@ -8,13 +8,17 @@ all device interaction flows through here.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
 import websockets
-from websockets.asyncio.client import ClientConnection
+
+if TYPE_CHECKING:
+    from websockets.asyncio.client import ClientConnection
 
 logger = structlog.get_logger(__name__)
 
@@ -115,7 +119,7 @@ class HAClient:
                 if msg_type == "event" and msg_id in self._subscriptions:
                     callback = self._subscriptions[msg_id]
                     event_data = msg.get("event", {})
-                    asyncio.create_task(callback(event_data))
+                    _task = asyncio.create_task(callback(event_data))  # noqa: RUF006
                 elif msg_type == "result" and msg_id in self._pending:
                     future = self._pending.pop(msg_id)
                     if not future.done():
@@ -312,10 +316,8 @@ class HAClient:
 
         if self._listen_task and not self._listen_task.done():
             self._listen_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._listen_task
-            except asyncio.CancelledError:
-                pass
 
         if self._ws:
             await self._ws.close()

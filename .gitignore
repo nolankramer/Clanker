@@ -47,4 +47,3 @@ htmlcov/
 
 # UV
 .python-version
-uv.lock
