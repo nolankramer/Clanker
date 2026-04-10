@@ -323,23 +323,43 @@ def _setup_telegram(answers: dict[str, Any]) -> None:
         return
 
     print(_ok(f"Bot verified: @{info['username']}"))
-    answers["telegram_enabled"] = True
     answers["telegram_token"] = bot_token
 
     print(f"\n  Now send any message to @{info['username']} on Telegram.")
     print(f"  {_DIM}Waiting for your message (60s timeout)...{_RESET}")
 
     result = get_chat_id(bot_token, timeout=60.0)
-    if result["ok"]:
-        chat_id = result["chat_id"]
-        name = result.get("first_name", "")
-        print(_ok(f"Got your chat ID: {chat_id} ({name})"))
-        answers["telegram_chat_ids"] = [chat_id]
-    else:
+    if not result["ok"]:
         print(_fail("No message received. Enter your chat ID manually:"))
         manual = _prompt("Chat ID")
         if manual:
-            answers["telegram_chat_ids"] = [int(manual)]
+            result = {"ok": True, "chat_id": int(manual), "username": "", "first_name": ""}
+        else:
+            return
+
+    chat_id = result["chat_id"]
+    username = result.get("username", "")
+    first_name = result.get("first_name", "")
+
+    # --- Identity verification ---
+    print(f"\n  {_BOLD}{_YELLOW}SECURITY VERIFICATION{_RESET}")
+    print("  Received message from:")
+    print(f"    Name:     {_CYAN}{first_name}{_RESET}")
+    if username:
+        print(f"    Username: {_CYAN}@{username}{_RESET}")
+    print(f"    Chat ID:  {_CYAN}{chat_id}{_RESET}")
+    print()
+    print(f"  {_BOLD}Only this account will be able to control Clanker.{_RESET}")
+    print("  Messages from any other Telegram user will be ignored.")
+    print()
+
+    if not _confirm("  Is this you?", default=True):
+        print(f"  {_DIM}Aborted. Try again with the correct account.{_RESET}")
+        return
+
+    answers["telegram_enabled"] = True
+    answers["telegram_chat_ids"] = [chat_id]
+    print(_ok("Telegram identity verified and locked"))
 
 
 def _setup_sms(answers: dict[str, Any]) -> None:
@@ -356,7 +376,7 @@ def _setup_sms(answers: dict[str, Any]) -> None:
         print(_fail("SID and token required"))
         return
 
-    from clanker.remote.sms import test_twilio_credentials
+    from clanker.remote.sms import SMSAdapter, test_twilio_credentials
 
     print("  Verifying credentials...")
     result = test_twilio_credentials(sid, token)
@@ -365,13 +385,63 @@ def _setup_sms(answers: dict[str, Any]) -> None:
         return
 
     print(_ok(f"Twilio account verified: {result.get('name', '')}"))
-    answers["sms_enabled"] = True
     answers["sms_account_sid"] = sid
     answers["sms_auth_token"] = token
-    answers["sms_from"] = _prompt("Twilio phone number (E.164)", "+1")
-    to = _prompt("Your phone number (E.164)", "+1")
-    if to:
-        answers["sms_to_numbers"] = [to]
+    from_number = _prompt("Twilio phone number (E.164)", "+1")
+    answers["sms_from"] = from_number
+    to_number = _prompt("Your phone number (E.164)", "+1")
+
+    if not to_number or to_number == "+1":
+        return
+
+    # --- SMS verification ---
+    import random
+
+    code = f"{random.randint(100000, 999999)}"
+
+    print(f"\n  {_BOLD}{_YELLOW}SECURITY VERIFICATION{_RESET}")
+    print(f"  Sending a 6-digit code to {_CYAN}{to_number}{_RESET}...")
+
+    import asyncio
+
+    async def _send_code() -> bool:
+        adapter = SMSAdapter(
+            account_sid=sid,
+            auth_token=token,
+            from_number=from_number,
+            to_numbers=[to_number],
+        )
+        try:
+            return await adapter.send(
+                f"Clanker verification code: {code}\n"
+                "Only this number will be able to control Clanker."
+            )
+        finally:
+            await adapter.close()
+
+    sent = asyncio.run(_send_code())
+
+    if not sent:
+        print(_fail("Failed to send verification SMS."))
+        print(f"  {_DIM}Check your Twilio number and try again.{_RESET}")
+        return
+
+    print(_ok("Verification code sent!"))
+    entered = _prompt("Enter the 6-digit code you received")
+
+    if entered != code:
+        print(_fail("Code does not match. Aborting SMS setup."))
+        return
+
+    print(
+        f"\n  {_BOLD}Only {_CYAN}{to_number}{_RESET}"
+        f"{_BOLD} will be able to control Clanker via SMS.{_RESET}"
+    )
+    print("  Messages from any other number will be ignored.")
+
+    answers["sms_enabled"] = True
+    answers["sms_to_numbers"] = [to_number]
+    print(_ok("Phone number verified and locked"))
 
 
 def _step_deploy(answers: dict[str, Any]) -> None:

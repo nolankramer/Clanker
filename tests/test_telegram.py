@@ -71,8 +71,8 @@ async def test_send_fails_gracefully(bot: TelegramBot) -> None:
     assert ok is False
 
 
-async def test_unauthorized_message(bot: TelegramBot) -> None:
-    """Messages from unknown chat IDs should be rejected."""
+async def test_unauthorized_message_silently_dropped(bot: TelegramBot) -> None:
+    """Messages from unknown chat IDs should be silently dropped."""
     bot._client.post = AsyncMock(
         return_value=MagicMock(json=lambda: {"ok": True})
     )
@@ -83,10 +83,8 @@ async def test_unauthorized_message(bot: TelegramBot) -> None:
         }
     }
     await bot._handle_update(update)
-    # Should send "unauthorized" response
-    assert bot._client.post.await_count == 1
-    call_args = bot._client.post.call_args[1]["json"]
-    assert "Unauthorized" in call_args.get("text", "")
+    # Should NOT respond — silent drop to avoid leaking bot existence
+    bot._client.post.assert_not_awaited()
 
 
 async def test_routes_to_agent(bot: TelegramBot) -> None:

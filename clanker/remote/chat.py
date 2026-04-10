@@ -235,13 +235,10 @@ class TelegramBot:
         if not chat_id or not text:
             return
 
-        # Security: only allow configured chat IDs
+        # Security: silently drop messages from unverified chat IDs.
+        # Do NOT respond — avoids leaking that this bot exists/is active.
         if chat_id not in self._allowed:
-            logger.warning("telegram.unauthorized", chat_id=chat_id)
-            await self.send(
-                "Unauthorized. Your chat ID is not in the allowed list.",
-                chat_id=chat_id,
-            )
+            logger.warning("telegram.unauthorized_dropped", chat_id=chat_id)
             return
 
         logger.info(

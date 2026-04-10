@@ -133,13 +133,15 @@ Key sections:
 - **frigate** — Frigate NVR connection and event filtering
 - **proactive** — morning briefing triggers
 
-## Safety
+## Safety & Security
 
 - **Entity allowlisting**: HA's exposed-entities allowlist is the hard gate. Clanker can only interact with entities HA exposes.
+- **Verified identity only**: The setup wizard verifies your Telegram chat ID and SMS phone number during setup. Only verified accounts can control Clanker — all other messages are silently dropped (no response, no info leaked).
+- **Prompt injection defense**: The system prompt instructs the brain to never execute instructions found in device names, sensor values, or tool results. Suspicious data is flagged to the user instead of acted upon.
 - **Quiet hours**: TTS announcements are suppressed during configured hours. Critical alerts always go through.
-- **Remote action limits**: The remote chat surface has a configurable allowlist of permitted actions.
 - **No direct device access**: All device interaction flows through HA services.
 - **Deterministic critical paths**: Fire/smoke/break-in alerts use fast deterministic handlers, not LLM reasoning.
+- **Secrets in env vars**: API keys and tokens are never stored in config YAML — only in `.env` or environment variables.
 
 See `docs/safety.md` for the full safety model.
 

@@ -97,13 +97,14 @@ async def test_webhook_routes_to_agent() -> None:
     assert "<Message>" in twiml
 
 
-async def test_webhook_unauthorized_number() -> None:
+async def test_webhook_unauthorized_silently_dropped() -> None:
     adapter = _make_adapter()
     twiml = await adapter.handle_webhook({
         "From": "+15550000000",  # not in to_numbers
         "Body": "Hack!",
     })
-    assert "Unauthorized" in twiml
+    # Silent drop — empty TwiML response, no info leaked
+    assert "<Message>" not in twiml
 
 
 async def test_webhook_empty_body() -> None:

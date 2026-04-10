@@ -145,10 +145,11 @@ class SMSAdapter:
 
         logger.info("sms.received", from_number=from_number, text=text[:80])
 
-        # Security: only process from known numbers
+        # Security: silently drop messages from unverified numbers.
+        # Do NOT respond — avoids confirming this number is active.
         if from_number not in self._to_numbers:
-            logger.warning("sms.unauthorized", from_number=from_number)
-            return self._twiml("Unauthorized number.")
+            logger.warning("sms.unauthorized_dropped", from_number=from_number)
+            return self._twiml("")
 
         # Route through conversation agent
         if self._agent:
