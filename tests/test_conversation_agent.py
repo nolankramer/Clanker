@@ -39,6 +39,7 @@ def agent(brain: AsyncMock, ha_client: AsyncMock, memory_tools: AsyncMock) -> Co
         brain=brain,
         ha_client=ha_client,
         memory_tools=memory_tools,
+        fast_intent=False,  # disable in unit tests — tested separately
     )
 
 
@@ -167,7 +168,8 @@ async def test_auto_rag_injects_memory(
     ])
 
     agent = ConversationAgent(
-        brain=brain, ha_client=ha_client, memory_tools=memory_tools
+        brain=brain, ha_client=ha_client, memory_tools=memory_tools,
+        fast_intent=False,
     )
 
     await agent.process("Turn on the lights")
@@ -185,7 +187,8 @@ async def test_auto_rag_graceful_on_failure(
     memory_tools.memory_search = AsyncMock(side_effect=RuntimeError("DB down"))
 
     agent = ConversationAgent(
-        brain=brain, ha_client=ha_client, memory_tools=memory_tools
+        brain=brain, ha_client=ha_client, memory_tools=memory_tools,
+        fast_intent=False,
     )
 
     result = await agent.process("Hello")

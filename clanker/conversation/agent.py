@@ -168,6 +168,7 @@ class ConversationAgent:
         session_ttl: float = 600.0,
         db_path: str | None = None,
         max_context_tokens: int = 6000,
+        fast_intent: bool = True,
     ) -> None:
         self._brain = brain
         self._ha = ha_client
@@ -178,6 +179,12 @@ class ConversationAgent:
             db_path=db_path,
             ttl_seconds=session_ttl,
             max_context_tokens=max_context_tokens,
+        )
+
+        from clanker.conversation.fast_intent import FastIntentMatcher
+
+        self._fast_intent = FastIntentMatcher(
+            ha_client, enabled=fast_intent
         )
 
     @property
@@ -219,6 +226,31 @@ class ConversationAgent:
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
 
+        # --- Fast-path: try HA's built-in intent matcher first ---
+        # Simple commands (turn on/off, set brightness, get weather)
+        # resolve in <50ms without touching the LLM.
+        if self._fast_intent.enabled:
+            intent_result = await self._fast_intent.try_match(
+                text, language=language, device_id=device_id
+            )
+            if intent_result.matched:
+                logger.info(
+                    "conversation.fast_intent",
+                    text=text[:80],
+                    response_type=intent_result.response_type,
+                )
+                # Add to session history for context continuity
+                session = self._sessions.get_or_create(conversation_id)
+                session.add(Role.USER, text)
+                session.add(Role.ASSISTANT, intent_result.speech)
+                await self._sessions.save(session)
+                return {
+                    "speech": intent_result.speech,
+                    "conversation_id": conversation_id,
+                    "continue_conversation": False,
+                }
+
+        # --- Slow path: full LLM brain ---
         session = self._sessions.get_or_create(conversation_id)
         session.add(Role.USER, text)
 
