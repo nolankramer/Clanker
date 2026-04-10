@@ -306,6 +306,7 @@
   <div class="step-dot" id="dot-4">5</div>
   <div class="step-dot" id="dot-5">6</div>
   <div class="step-dot" id="dot-6">7</div>
+  <div class="step-dot" id="dot-7">8</div>
 </div>
 
 <!-- Step 0: Home Assistant -->
@@ -321,6 +322,7 @@
     <label>Access Token</label>
     <input id="ha-token" type="password" placeholder="Long-lived access token">
   </div>
+  <button class="btn btn-test" onclick="scanForHA()" style="margin-right:0.5rem">Auto-Discover</button>
   <button class="btn btn-test" onclick="testHA()">Test Connection</button>
   <div class="status" id="ha-status"></div>
   <div class="btn-row">
@@ -542,8 +544,82 @@
   </div>
 </div>
 
-<!-- Step 6: Review & Save -->
+<!-- Step 6: Deployment -->
 <div class="card" id="step-6">
+  <h2>Deployment</h2>
+  <p class="desc">Where should Clanker run?</p>
+
+  <div class="toggle-row" onclick="selectDeploy('local')" style="cursor:pointer">
+    <span class="toggle-label">
+      <strong>Local</strong><br>
+      <small>Run on this machine alongside your dev setup</small>
+    </span>
+    <input type="radio" name="deploy" value="local" checked id="deploy-local">
+  </div>
+
+  <div class="toggle-row" onclick="selectDeploy('addon')" style="cursor:pointer">
+    <span class="toggle-label">
+      <strong>HA Add-on</strong> <span style="color:var(--green);font-size:0.8rem">recommended</span><br>
+      <small>Install directly on your HA server (HA OS / Supervised)</small>
+    </span>
+    <input type="radio" name="deploy" value="addon" id="deploy-addon">
+  </div>
+
+  <div class="toggle-row" onclick="selectDeploy('ssh')" style="cursor:pointer">
+    <span class="toggle-label">
+      <strong>Remote Server (SSH)</strong><br>
+      <small>Deploy via SSH + Docker to any server</small>
+    </span>
+    <input type="radio" name="deploy" value="ssh" id="deploy-ssh">
+  </div>
+
+  <!-- Add-on instructions -->
+  <div id="addon-instructions" style="display:none;margin-top:1rem;">
+    <div class="provider-section">
+      <h3 style="color:var(--green)">HA Add-on Install Steps</h3>
+      <div style="font-size:0.9rem;line-height:1.8;color:var(--text-dim)">
+        1. In HA: <strong>Settings &rarr; Add-ons &rarr; Add-on Store</strong><br>
+        2. Click <strong>&hellip;</strong> (top-right) &rarr; <strong>Repositories</strong><br>
+        3. Add: <code style="color:var(--accent)">https://github.com/nolankramer/clanker</code><br>
+        4. Find <strong>Clanker</strong> in the store and click <strong>Install</strong><br>
+        5. Configure your API keys in the add-on settings<br>
+        6. Click <strong>Start</strong>
+      </div>
+      <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-dim)">
+        The add-on auto-installs the custom component, configures HA, and gets the auth token automatically. No manual setup needed.
+      </p>
+    </div>
+  </div>
+
+  <!-- SSH deploy -->
+  <div id="ssh-deploy" style="display:none;margin-top:1rem;">
+    <div class="provider-section">
+      <h3>SSH Deployment</h3>
+      <div class="field">
+        <label>SSH Target (e.g. user@192.168.1.50)</label>
+        <input id="ssh-host" type="text" placeholder="user@hostname">
+      </div>
+      <div class="field">
+        <label>HA Config Path on Remote</label>
+        <input id="ssh-ha-path" type="text" value="/config">
+      </div>
+      <button class="btn btn-test" onclick="testSSH()">Test SSH</button>
+      <div class="status" id="ssh-status"></div>
+      <div style="margin-top:0.75rem">
+        <button class="btn btn-primary" onclick="deploySSH()" id="ssh-deploy-btn" disabled>Deploy via SSH</button>
+      </div>
+      <div class="status" id="ssh-deploy-status"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="prev()">Back</button>
+    <button class="btn btn-primary" onclick="next()">Next</button>
+  </div>
+</div>
+
+<!-- Step 7: Review & Save -->
+<div class="card" id="step-7">
   <h2>Review &amp; Save</h2>
   <p class="desc">Review your configuration before writing files.</p>
 
@@ -572,7 +648,7 @@
 
 <script>
 let currentStep = 0;
-const totalSteps = 7;
+const totalSteps = 8;
 let discoveredEntities = {};
 let discoveredRooms = [];
 
@@ -587,7 +663,7 @@ function showStep(n) {
   }
   // Hooks on entering a step
   if (n === 2) populateRouting();
-  if (n === 6) populateReview();
+  if (n === 7) populateReview();
 }
 
 function next() {
@@ -619,6 +695,18 @@ async function api(endpoint, body) {
     body: JSON.stringify(body),
   });
   return resp.json();
+}
+
+async function scanForHA() {
+  setStatus('ha-status', 'loading', 'Scanning network...');
+  const r = await api('/api/discover/ha', {scan_subnet: false, timeout: 3});
+  if (r.instances && r.instances.length) {
+    const inst = r.instances[0];
+    document.getElementById('ha-url').value = inst.url;
+    setStatus('ha-status', 'ok', `Found HA at ${inst.url} (v${inst.version})`);
+  } else {
+    setStatus('ha-status', 'err', 'No HA instance found. Enter the URL manually.');
+  }
 }
 
 async function testHA() {
@@ -758,6 +846,41 @@ function renderEntityList(containerId, items) {
   }
 }
 
+// -- Deployment --
+
+function selectDeploy(mode) {
+  document.getElementById('deploy-local').checked = (mode === 'local');
+  document.getElementById('deploy-addon').checked = (mode === 'addon');
+  document.getElementById('deploy-ssh').checked = (mode === 'ssh');
+  document.getElementById('addon-instructions').style.display = (mode === 'addon') ? 'block' : 'none';
+  document.getElementById('ssh-deploy').style.display = (mode === 'ssh') ? 'block' : 'none';
+}
+
+async function testSSH() {
+  setStatus('ssh-status', 'loading', 'Testing SSH...');
+  const r = await api('/api/deploy/test-ssh', {host: document.getElementById('ssh-host').value});
+  if (r.ok) {
+    const caps = r.capabilities || {};
+    let msg = 'Connected';
+    if (caps.docker) msg += ' | Docker ✓';
+    if (caps.ha_config) msg += ' | HA config ✓';
+    setStatus('ssh-status', 'ok', msg);
+    document.getElementById('ssh-deploy-btn').disabled = false;
+    if (caps.ha_config_path) document.getElementById('ssh-ha-path').value = caps.ha_config_path;
+  } else {
+    setStatus('ssh-status', 'err', r.message);
+  }
+}
+
+async function deploySSH() {
+  setStatus('ssh-deploy-status', 'loading', 'Deploying... this may take a few minutes');
+  const r = await api('/api/deploy/ssh', {
+    host: document.getElementById('ssh-host').value,
+    ha_config_path: document.getElementById('ssh-ha-path').value,
+  });
+  setStatus('ssh-deploy-status', r.ok ? 'ok' : 'err', r.message);
+}
+
 // -- Voice pipeline --
 
 async function installComponent() {
@@ -886,12 +1009,12 @@ async function saveConfig() {
   if (r.ok) {
     document.getElementById('save-result').innerHTML = '';
     // Hide the form elements, show success
-    document.querySelector('#step-6 .btn-row').style.display = 'none';
-    document.querySelectorAll('#step-6 .review-block, #step-6 label.review-label, #step-6 p.desc').forEach(e => e.style.display = 'none');
+    document.querySelector('#step-7 .btn-row').style.display = 'none';
+    document.querySelectorAll('#step-7 .review-block, #step-7 label.review-label, #step-7 p.desc').forEach(e => e.style.display = 'none');
     document.getElementById('success-banner').style.display = 'block';
     // Mark final dot
-    document.getElementById(`dot-6`).classList.remove('active');
-    document.getElementById(`dot-6`).classList.add('done');
+    document.getElementById(`dot-7`).classList.remove('active');
+    document.getElementById(`dot-7`).classList.add('done');
   } else {
     const el = document.getElementById('save-result');
     el.innerHTML = `<div class="status err">${r.message || 'Failed to save'}</div>`;

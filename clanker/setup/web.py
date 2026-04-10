@@ -62,6 +62,9 @@ class _Handler(BaseHTTPRequestHandler):
             "/api/test/frigate": self._handle_test_frigate,
             "/api/discover": self._handle_discover,
             "/api/voice/install-component": self._handle_install_component,
+            "/api/discover/ha": self._handle_discover_ha,
+            "/api/deploy/test-ssh": self._handle_test_ssh,
+            "/api/deploy/ssh": self._handle_deploy_ssh,
             "/api/config/save": self._handle_save,
         }
         handler = routes.get(self.path)
@@ -100,6 +103,29 @@ class _Handler(BaseHTTPRequestHandler):
         entities = discover_entities(url, token)
         rooms = infer_rooms(entities)
         self._json_response({"entities": entities, "rooms": rooms})
+
+    def _handle_discover_ha(self, body: dict[str, Any]) -> None:
+        from clanker.setup.discovery import discover_ha
+
+        scan = body.get("scan_subnet", False)
+        results = discover_ha(scan_subnet=scan, timeout=body.get("timeout", 3.0))
+        self._json_response({"instances": results})
+
+    def _handle_test_ssh(self, body: dict[str, Any]) -> None:
+        from clanker.setup.remote import test_ssh
+
+        result = test_ssh(body.get("host", ""))
+        self._json_response(result)
+
+    def _handle_deploy_ssh(self, body: dict[str, Any]) -> None:
+        from clanker.setup.remote import deploy_docker
+
+        result = deploy_docker(
+            body.get("host", ""),
+            ha_config_path=body.get("ha_config_path", "/config"),
+            install_dir=body.get("install_dir", "/opt/clanker"),
+        )
+        self._json_response(result)
 
     def _handle_install_component(self, body: dict[str, Any]) -> None:
         from clanker.setup.voice import add_clanker_to_ha_config, install_ha_component

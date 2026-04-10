@@ -13,6 +13,7 @@ import getpass
 import sys
 from typing import Any
 
+from clanker.setup.discovery import quick_discover
 from clanker.setup.wizard import (
     discover_entities,
     generate_config,
@@ -77,7 +78,20 @@ def _confirm(label: str, default: bool = True) -> bool:
 
 def _step_ha(answers: dict[str, Any]) -> bool:
     _header(1, "Home Assistant")
-    answers["ha_url"] = _prompt("HA URL", "http://localhost:8123")
+
+    # Auto-discovery
+    print("  Scanning for Home Assistant...")
+    discovered = quick_discover(timeout=3.0)
+    if discovered:
+        print(_ok(f"Found HA at {discovered['url']}"))
+        if _confirm(f"Use {discovered['url']}?", default=True):
+            answers["ha_url"] = discovered["url"]
+        else:
+            answers["ha_url"] = _prompt("HA URL", discovered["url"])
+    else:
+        print(f"  {_DIM}No HA instance found automatically{_RESET}")
+        answers["ha_url"] = _prompt("HA URL", "http://localhost:8123")
+
     answers["ha_token"] = _secret("Long-lived access token")
     if not answers["ha_token"]:
         print(_fail("Token is required"))
@@ -270,8 +284,77 @@ def _step_voice(answers: dict[str, Any]) -> None:
     print(f"  {_DIM}  python -m clanker.setup.wakeword --deploy /share/openwakeword{_RESET}")
 
 
+def _step_deploy(answers: dict[str, Any]) -> None:
+    _header(7, "Deployment")
+    print(f"  {_BOLD}Where should Clanker run?{_RESET}\n")
+    print(f"  {_CYAN}1{_RESET}  Here (local machine)")
+    print(f"  {_CYAN}2{_RESET}  On the HA server (via HA Add-on)")
+    print(f"  {_CYAN}3{_RESET}  On a remote server (via SSH + Docker)")
+    print()
+
+    choice = _prompt("Deployment target", "1")
+
+    if choice == "1":
+        answers["deploy_mode"] = "local"
+        print(_ok("Will save config locally. Run: python -m clanker.main"))
+
+    elif choice == "2":
+        answers["deploy_mode"] = "addon"
+        print(f"\n  {_GREEN}HA Add-on installation:{_RESET}")
+        print("  1. In HA, go to Settings -> Add-ons -> Add-on Store")
+        print("  2. Click the 3 dots (top-right) -> Repositories")
+        print(
+            f"  3. Add: {_CYAN}https://github.com/nolankramer/clanker{_RESET}"
+        )
+        print("  4. Find 'Clanker' in the store and click Install")
+        print("  5. Configure your API keys in the add-on settings")
+        print("  6. Start the add-on\n")
+        print(
+            f"  {_DIM}The add-on auto-installs the custom component,"
+        )
+        print(
+            f"  configures HA, and gets the token automatically.{_RESET}"
+        )
+
+    elif choice == "3":
+        answers["deploy_mode"] = "ssh"
+        ssh_host = _prompt("SSH target (e.g. user@192.168.1.50)")
+        if ssh_host:
+            answers["ssh_host"] = ssh_host
+            from clanker.setup.remote import test_ssh
+
+            print("  Testing SSH connection...")
+            r = test_ssh(ssh_host)
+            if r["ok"]:
+                print(_ok(r["message"]))
+                caps = r.get("capabilities", {})
+                if caps.get("docker"):
+                    print(_ok("Docker available"))
+                if caps.get("ha_config"):
+                    ha_path = caps.get("ha_config_path", "/config")
+                    print(_ok(f"HA config found at {ha_path}"))
+                    answers["remote_ha_config"] = ha_path
+
+                if _confirm("Deploy now?", default=True):
+                    from clanker.setup.remote import deploy_docker
+
+                    print("  Deploying (this may take a few minutes)...")
+                    dr = deploy_docker(
+                        ssh_host,
+                        ha_config_path=answers.get(
+                            "remote_ha_config", "/config"
+                        ),
+                    )
+                    if dr["ok"]:
+                        print(_ok(dr["message"]))
+                    else:
+                        print(_fail(dr["message"]))
+            else:
+                print(_fail(r["message"]))
+
+
 def _step_save(answers: dict[str, Any]) -> None:
-    _header(7, "Save Configuration")
+    _header(8, "Save Configuration")
     yaml_content = generate_config(answers)
     env_content = generate_env(answers)
 
@@ -337,6 +420,7 @@ def main() -> None:
         _step_frigate(answers)
         _step_discovery(answers)
         _step_voice(answers)
+        _step_deploy(answers)
         _step_save(answers)
     except KeyboardInterrupt:
         print(f"\n{_DIM}  Cancelled.{_RESET}")
