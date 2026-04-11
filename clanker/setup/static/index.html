@@ -372,7 +372,7 @@
           2. Add: <code style="color:var(--green);cursor:pointer" onclick="navigator.clipboard.writeText('https://github.com/alexbelgium/hassio-addons')">https://github.com/alexbelgium/hassio-addons</code> (click to copy)<br>
           3. Search for <strong>Ollama</strong> in the App Store &rarr; <strong>Install</strong><br>
           4. Start the Ollama add-on<br>
-          5. Set the URL below to <strong>http://&lt;HA-IP&gt;:11434</strong> and test
+          5. Click <strong>Test Ollama Connection</strong> below (URL auto-fills from Step 1)
         </div>
         <div class="field">
           <label>Ollama URL (the Ollama add-on on your HA device)</label>
@@ -811,18 +811,14 @@ function ollamaLocationChanged() {
   document.getElementById('ollama-local-setup').style.display = loc === 'local' ? 'block' : 'none';
   document.getElementById('ollama-remote-setup').style.display = loc === 'remote' ? 'block' : 'none';
 
-  // Auto-fill SSH target and Ollama URL from HA connection
+  // Auto-fill Ollama URL from HA connection
   if (loc === 'remote') {
     const haUrl = document.getElementById('ha-url').value;
     try {
       const url = new URL(haUrl);
       const host = url.hostname;
       if (host && host !== 'localhost' && host !== '127.0.0.1') {
-        const sshField = document.getElementById('ollama-ssh-host');
         const urlField = document.getElementById('ollama-remote-url');
-        if (!sshField.value) {
-          sshField.value = 'root@' + host;
-        }
         if (!urlField.value) {
           urlField.value = 'http://' + host + ':11434';
         }
