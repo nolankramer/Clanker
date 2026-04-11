@@ -366,13 +366,17 @@
       </div>
 
       <div id="ollama-remote-setup" style="display:none">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">
+          Requires the <strong>SSH &amp; Web Terminal</strong> add-on in HA
+          (Settings &rarr; Add-ons &rarr; SSH &amp; Web Terminal).
+        </p>
         <div class="field">
-          <label>SSH target (e.g. user@192.168.1.50)</label>
-          <input id="ollama-ssh-host" type="text" placeholder="user@ha-server.local">
+          <label>SSH target</label>
+          <input id="ollama-ssh-host" type="text" placeholder="root@192.168.1.50 -p 22222">
         </div>
         <div class="field">
           <label>Ollama URL (from Clanker's perspective)</label>
-          <input id="ollama-remote-url" type="text" value="http://192.168.1.50:11434">
+          <input id="ollama-remote-url" type="text" placeholder="http://192.168.1.50:11434">
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
           <button class="btn btn-primary" onclick="installOllamaRemote()" style="font-size:0.85rem">Install on Remote</button>
@@ -807,6 +811,25 @@ function ollamaLocationChanged() {
   const loc = document.getElementById('ollama-location').value;
   document.getElementById('ollama-local-setup').style.display = loc === 'local' ? 'block' : 'none';
   document.getElementById('ollama-remote-setup').style.display = loc === 'remote' ? 'block' : 'none';
+
+  // Auto-fill SSH target and Ollama URL from HA connection
+  if (loc === 'remote') {
+    const haUrl = document.getElementById('ha-url').value;
+    try {
+      const url = new URL(haUrl);
+      const host = url.hostname;
+      if (host && host !== 'localhost' && host !== '127.0.0.1') {
+        const sshField = document.getElementById('ollama-ssh-host');
+        const urlField = document.getElementById('ollama-remote-url');
+        if (!sshField.value) {
+          sshField.value = 'root@' + host + ' -p 22222';
+        }
+        if (!urlField.value) {
+          urlField.value = 'http://' + host + ':11434';
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 async function testOllama() {

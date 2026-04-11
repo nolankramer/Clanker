@@ -186,14 +186,21 @@ def _start_ollama_service() -> None:
         pass  # best effort
 
 
+def _parse_ssh_target(ssh_host: str) -> list[str]:
+    """Parse 'user@host -p 22222' into SSH command args."""
+    parts = ssh_host.strip().split()
+    return parts
+
+
 def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
     """Install Ollama on a remote machine via SSH."""
     try:
+        ssh_args = _parse_ssh_target(ssh_host)
         result = subprocess.run(
             [
                 "ssh", "-o", "StrictHostKeyChecking=no",
                 "-o", "ConnectTimeout=10",
-                ssh_host,
+                *ssh_args,
                 "curl -fsSL https://ollama.com/install.sh | sh && "
                 "systemctl start ollama 2>/dev/null; "
                 "ollama --version",
@@ -201,14 +208,18 @@ def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
             capture_output=True, text=True, timeout=300,
         )
         if result.returncode == 0:
-            return {"ok": True, "message": f"Ollama installed on {ssh_host}"}
+            version = result.stdout.strip().split("\n")[-1]
+            return {
+                "ok": True,
+                "message": f"Ollama installed on {ssh_args[0]} ({version})",
+            }
         return {"ok": False, "message": result.stderr[:500]}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "message": "Remote install timed out"}
+        return {"ok": False, "message": "Remote install timed out (5 min)"}
     except FileNotFoundError:
-        return {"ok": False, "message": "ssh not available"}
+        return {"ok": False, "message": "ssh command not available on this machine"}
     except Exception as exc:
-        return {"ok": False, "message": str(exc)}
+        return {"ok": False, "message": f"{type(exc).__name__}: {exc}"}
 
 
 def pull_model(
