@@ -97,17 +97,116 @@ def get_installed_models(
 
 
 def install_ollama() -> dict[str, Any]:
-    """Install Ollama via the official install script."""
+    """Install Ollama via the appropriate method for the platform."""
+    import platform
+    import shutil
+
+    system = platform.system().lower()
+
+    # Check if already installed
+    if shutil.which("ollama"):
+        # Try to start it
+        _start_ollama_service()
+        return {"ok": True, "message": "Ollama is already installed"}
+
+    try:
+        if system == "windows":
+            # Windows: use winget or direct download
+            result = subprocess.run(
+                ["winget", "install", "--id", "Ollama.Ollama", "-e", "--accept-source-agreements"],
+                capture_output=True, text=True, timeout=300,
+            )
+            if result.returncode == 0:
+                _start_ollama_service()
+                return {"ok": True, "message": "Ollama installed via winget"}
+            # Fallback: direct download
+            return {
+                "ok": False,
+                "message": (
+                    "winget install failed. Download manually from "
+                    "https://ollama.com/download/windows"
+                ),
+            }
+        elif system == "darwin":
+            # macOS: brew or direct download
+            result = subprocess.run(
+                ["brew", "install", "ollama"],
+                capture_output=True, text=True, timeout=300,
+            )
+            if result.returncode == 0:
+                _start_ollama_service()
+                return {"ok": True, "message": "Ollama installed via brew"}
+            return {
+                "ok": False,
+                "message": "brew install failed. Download from https://ollama.com/download/mac",
+            }
+        else:
+            # Linux: official install script
+            result = subprocess.run(
+                ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
+                capture_output=True, text=True, timeout=300,
+            )
+            if result.returncode == 0:
+                _start_ollama_service()
+                return {"ok": True, "message": "Ollama installed successfully"}
+            return {"ok": False, "message": result.stderr[:500]}
+    except FileNotFoundError:
+        tool = "winget" if system == "windows" else "brew" if system == "darwin" else "curl"
+        return {
+            "ok": False,
+            "message": f"{tool} not found. Download Ollama manually from https://ollama.com/download",
+        }
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "message": "Installation timed out (5 min)"}
+    except Exception as exc:
+        return {"ok": False, "message": f"{type(exc).__name__}: {exc}"}
+
+
+def _start_ollama_service() -> None:
+    """Try to start the Ollama service after install."""
+    import platform
+
+    system = platform.system().lower()
+    try:
+        if system == "linux":
+            subprocess.run(
+                ["systemctl", "start", "ollama"],
+                capture_output=True, timeout=10,
+            )
+        else:
+            # macOS/Windows: start ollama serve in background
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            import time
+            time.sleep(2)  # give it a moment to start
+    except Exception:
+        pass  # best effort
+
+
+def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
+    """Install Ollama on a remote machine via SSH."""
     try:
         result = subprocess.run(
-            ["bash", "-c", "curl -fsSL https://ollama.com/install.sh | sh"],
-            capture_output=True, text=True, timeout=120,
+            [
+                "ssh", "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=10",
+                ssh_host,
+                "curl -fsSL https://ollama.com/install.sh | sh && "
+                "systemctl start ollama 2>/dev/null; "
+                "ollama --version",
+            ],
+            capture_output=True, text=True, timeout=300,
         )
         if result.returncode == 0:
-            return {"ok": True, "message": "Ollama installed successfully"}
+            return {"ok": True, "message": f"Ollama installed on {ssh_host}"}
         return {"ok": False, "message": result.stderr[:500]}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "message": "Installation timed out"}
+        return {"ok": False, "message": "Remote install timed out"}
+    except FileNotFoundError:
+        return {"ok": False, "message": "ssh not available"}
     except Exception as exc:
         return {"ok": False, "message": str(exc)}
 

@@ -65,6 +65,7 @@ class _Handler(BaseHTTPRequestHandler):
             "/api/discover/ha": self._handle_discover_ha,
             "/api/ollama/install": self._handle_ollama_install,
             "/api/ollama/pull": self._handle_ollama_pull,
+            "/api/ollama/install-remote": self._handle_ollama_install_remote,
             "/api/ollama/optimize": self._handle_ollama_optimize,
             "/api/deploy/test-ssh": self._handle_test_ssh,
             "/api/deploy/ssh": self._handle_deploy_ssh,
@@ -111,6 +112,11 @@ class _Handler(BaseHTTPRequestHandler):
         from clanker.setup.ollama import install_ollama
 
         self._json_response(install_ollama())
+
+    def _handle_ollama_install_remote(self, body: dict[str, Any]) -> None:
+        from clanker.setup.ollama import install_ollama_remote
+
+        self._json_response(install_ollama_remote(body.get("ssh_host", "")))
 
     def _handle_ollama_pull(self, body: dict[str, Any]) -> None:
         from clanker.setup.ollama import pull_model
@@ -212,13 +218,26 @@ class _Handler(BaseHTTPRequestHandler):
 
 def run_server(port: int = 8471) -> None:
     """Start the setup wizard web server and open a browser."""
+    import signal
+
     server = HTTPServer(("127.0.0.1", port), _Handler)
+    server.timeout = 1  # short timeout so we check for signals often
     url = f"http://127.0.0.1:{port}"
     print(f"Clanker setup wizard running at {url}")
     print("Press Ctrl+C to stop.\n")
     webbrowser.open(url)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down.")
-        server.shutdown()
+
+    running = True
+
+    def _shutdown(sig: int, frame: Any) -> None:
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
+    while running:
+        server.handle_request()
+
+    print("\nShutting down.")
+    server.server_close()

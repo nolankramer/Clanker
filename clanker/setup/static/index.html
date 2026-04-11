@@ -336,12 +336,79 @@
   <h2>LLM Providers</h2>
   <p class="desc">Choose which AI backends to use. Enable at least one.</p>
 
+  <!-- Ollama — HERO SECTION (first, most prominent) -->
+  <div class="provider-section" id="ollama-section" style="border-color:var(--accent)">
+    <h3>
+      <label class="toggle"><input type="checkbox" id="ollama-on" checked onchange="toggleProvider('ollama')"><span class="slider"></span></label>
+      Ollama (Local AI) <span style="color:var(--green);font-size:0.8rem;margin-left:0.5rem">recommended</span>
+    </h3>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+      Runs AI models on your own hardware. Free, private, no internet needed.
+    </p>
+    <div id="ollama-fields">
+      <div class="field">
+        <label>Where is Ollama running?</label>
+        <select id="ollama-location" onchange="ollamaLocationChanged()">
+          <option value="local" selected>This machine</option>
+          <option value="remote">Remote server (HA device / other)</option>
+        </select>
+      </div>
+
+      <div id="ollama-local-setup">
+        <div class="field">
+          <label>Ollama URL</label>
+          <input id="ollama-url" type="text" value="http://localhost:11434">
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <button class="btn btn-test" onclick="testOllama()">Test Connection</button>
+          <button class="btn btn-primary" onclick="installOllama()" style="font-size:0.85rem">Install Ollama</button>
+        </div>
+      </div>
+
+      <div id="ollama-remote-setup" style="display:none">
+        <div class="field">
+          <label>SSH target (e.g. user@192.168.1.50)</label>
+          <input id="ollama-ssh-host" type="text" placeholder="user@ha-server.local">
+        </div>
+        <div class="field">
+          <label>Ollama URL (from Clanker's perspective)</label>
+          <input id="ollama-remote-url" type="text" value="http://192.168.1.50:11434">
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <button class="btn btn-primary" onclick="installOllamaRemote()" style="font-size:0.85rem">Install on Remote</button>
+          <button class="btn btn-test" onclick="testOllama()">Test Connection</button>
+        </div>
+      </div>
+
+      <div class="status" id="ollama-status"></div>
+
+      <div class="field" style="margin-top:0.75rem">
+        <label>Model</label>
+        <select id="ollama-model">
+          <option value="llama3.2" selected>llama3.2</option>
+        </select>
+      </div>
+
+      <div id="ollama-pull-section" style="margin-top:0.75rem">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Download models (click to pull):</p>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-test" onclick="pullModel('llama3.2')" style="font-size:0.8rem">llama3.2 (2GB)</button>
+          <button class="btn btn-test" onclick="pullModel('llama3.1:8b-instruct-q4_K_M')" style="font-size:0.8rem">llama3.1 8B (4.5GB)</button>
+          <button class="btn btn-test" onclick="pullModel('llava')" style="font-size:0.8rem">llava vision (4.5GB)</button>
+          <button class="btn btn-test" onclick="pullModel('nomic-embed-text')" style="font-size:0.8rem">embeddings (275MB)</button>
+        </div>
+        <div class="status" id="ollama-pull-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anthropic -->
   <div class="provider-section" id="anthropic-section">
     <h3>
-      <label class="toggle"><input type="checkbox" id="anthropic-on" checked onchange="toggleProvider('anthropic')"><span class="slider"></span></label>
-      Anthropic (Claude)
+      <label class="toggle"><input type="checkbox" id="anthropic-on" onchange="toggleProvider('anthropic')"><span class="slider"></span></label>
+      Anthropic (Claude) <span style="font-size:0.8rem;color:var(--text-dim)">cloud</span>
     </h3>
-    <div id="anthropic-fields">
+    <div id="anthropic-fields" style="display:none">
       <div class="field">
         <label>API Key <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);font-size:0.8rem;margin-left:0.5rem">Get key &rarr;</a></label>
         <input id="anthropic-key" type="password" placeholder="sk-ant-...">
@@ -358,10 +425,11 @@
     </div>
   </div>
 
+  <!-- OpenAI -->
   <div class="provider-section" id="openai-section">
     <h3>
       <label class="toggle"><input type="checkbox" id="openai-on" onchange="toggleProvider('openai')"><span class="slider"></span></label>
-      OpenAI
+      OpenAI <span style="font-size:0.8rem;color:var(--text-dim)">cloud</span>
     </h3>
     <div id="openai-fields" style="display:none">
       <div class="field">
@@ -377,35 +445,6 @@
       </div>
       <button class="btn btn-test" onclick="testOpenAI()">Test &amp; Load Models</button>
       <div class="status" id="openai-status"></div>
-    </div>
-  </div>
-
-  <div class="provider-section" id="ollama-section">
-    <h3>
-      <label class="toggle"><input type="checkbox" id="ollama-on" checked onchange="toggleProvider('ollama')"><span class="slider"></span></label>
-      Ollama (Local)
-    </h3>
-    <div id="ollama-fields">
-      <div class="field">
-        <label>Ollama URL</label>
-        <input id="ollama-url" type="text" value="http://localhost:11434">
-      </div>
-      <div class="field">
-        <label>Model</label>
-        <select id="ollama-model">
-          <option value="llama3.2" selected>llama3.2</option>
-        </select>
-      </div>
-      <button class="btn btn-test" onclick="testOllama()" style="margin-right:0.5rem">Test</button>
-      <button class="btn btn-test" onclick="installOllama()">Install Ollama</button>
-      <div class="status" id="ollama-status"></div>
-      <div id="ollama-pull-section" style="display:none;margin-top:0.75rem;">
-        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Pull recommended models:</p>
-        <button class="btn btn-test" onclick="pullModel('llama3.2')" style="margin:2px">llama3.2 (2GB)</button>
-        <button class="btn btn-test" onclick="pullModel('llava')" style="margin:2px">llava vision (4.5GB)</button>
-        <button class="btn btn-test" onclick="pullModel('nomic-embed-text')" style="margin:2px">embeddings (275MB)</button>
-        <div class="status" id="ollama-pull-status"></div>
-      </div>
     </div>
   </div>
 
@@ -756,41 +795,76 @@ async function testOpenAI() {
   }
 }
 
+function getOllamaUrl() {
+  const loc = document.getElementById('ollama-location').value;
+  if (loc === 'remote') {
+    return document.getElementById('ollama-remote-url').value;
+  }
+  return document.getElementById('ollama-url').value;
+}
+
+function ollamaLocationChanged() {
+  const loc = document.getElementById('ollama-location').value;
+  document.getElementById('ollama-local-setup').style.display = loc === 'local' ? 'block' : 'none';
+  document.getElementById('ollama-remote-setup').style.display = loc === 'remote' ? 'block' : 'none';
+}
+
 async function testOllama() {
-  setStatus('ollama-status', 'loading', 'Testing...');
-  const r = await api('/api/test/ollama', {
-    base_url: document.getElementById('ollama-url').value,
-  });
+  setStatus('ollama-status', 'loading', 'Connecting...');
+  const r = await api('/api/test/ollama', {base_url: getOllamaUrl()});
   setStatus('ollama-status', r.ok ? 'ok' : 'err', r.message);
-  if (r.ok) {
-    document.getElementById('ollama-pull-section').style.display = 'block';
-    if (r.models && r.models.length) {
-      populateSelect('ollama-model', r.models, r.models[0]);
-    }
+  if (r.ok && r.models && r.models.length) {
+    populateSelect('ollama-model', r.models, r.models[0]);
   }
 }
 
 async function installOllama() {
-  setStatus('ollama-status', 'loading', 'Installing Ollama (this may take a minute)...');
+  setStatus('ollama-status', 'loading', 'Step 1/3: Downloading Ollama...');
   const r = await api('/api/ollama/install', {});
-  setStatus('ollama-status', r.ok ? 'ok' : 'err', r.message || r.ok ? 'Installed' : 'Failed');
+  if (!r.ok) {
+    setStatus('ollama-status', 'err', r.message);
+    return;
+  }
+  setStatus('ollama-status', 'loading', 'Step 2/3: Starting Ollama service...');
+  // Wait a moment for the service to start
+  await new Promise(res => setTimeout(res, 3000));
+  setStatus('ollama-status', 'loading', 'Step 3/3: Verifying connection...');
+  const t = await api('/api/test/ollama', {base_url: getOllamaUrl()});
+  if (t.ok) {
+    setStatus('ollama-status', 'ok', 'Ollama installed and running! ' + t.message);
+    if (t.models && t.models.length) {
+      populateSelect('ollama-model', t.models, t.models[0]);
+    }
+  } else {
+    setStatus('ollama-status', 'ok', 'Ollama installed. Start it manually: ollama serve');
+  }
+}
+
+async function installOllamaRemote() {
+  const host = document.getElementById('ollama-ssh-host').value;
+  if (!host) { setStatus('ollama-status', 'err', 'Enter SSH target'); return; }
+  setStatus('ollama-status', 'loading', 'Installing Ollama on ' + host + ' (this may take a few minutes)...');
+  const r = await api('/api/ollama/install-remote', {ssh_host: host});
   if (r.ok) {
-    document.getElementById('ollama-pull-section').style.display = 'block';
+    setStatus('ollama-status', 'ok', r.message);
+    // Auto-test the remote connection
+    const t = await api('/api/test/ollama', {base_url: getOllamaUrl()});
+    if (t.ok && t.models) populateSelect('ollama-model', t.models, t.models[0]);
+  } else {
+    setStatus('ollama-status', 'err', r.message);
   }
 }
 
 async function pullModel(model) {
-  setStatus('ollama-pull-status', 'loading', 'Pulling ' + model + '...');
+  setStatus('ollama-pull-status', 'loading', 'Downloading ' + model + ' (this may take a few minutes)...');
   const r = await api('/api/ollama/pull', {model: model});
-  setStatus('ollama-pull-status', r.ok ? 'ok' : 'err', r.message || model);
   if (r.ok) {
+    setStatus('ollama-pull-status', 'ok', 'Downloaded ' + model);
     // Refresh model list
-    const r2 = await api('/api/test/ollama', {
-      base_url: document.getElementById('ollama-url').value,
-    });
-    if (r2.ok && r2.models) {
-      populateSelect('ollama-model', r2.models, model);
-    }
+    const r2 = await api('/api/test/ollama', {base_url: getOllamaUrl()});
+    if (r2.ok && r2.models) populateSelect('ollama-model', r2.models, model);
+  } else {
+    setStatus('ollama-pull-status', 'err', r.message);
   }
 }
 
@@ -981,7 +1055,7 @@ function buildAnswers() {
 
   answers.ollama_enabled = document.getElementById('ollama-on').checked;
   if (answers.ollama_enabled) {
-    answers.ollama_url = document.getElementById('ollama-url').value;
+    answers.ollama_url = getOllamaUrl();
     answers.ollama_model = document.getElementById('ollama-model').value;
   }
 
