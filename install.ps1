@@ -86,7 +86,10 @@ if (Test-Path $gitDir) {
 
 # --- Install dependencies ---
 Write-Step "Installing dependencies"
-& uv sync 2>&1 | Select-Object -Last 1
+$prevPref = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
+& uv sync 2>&1 | Out-Null
+$ErrorActionPreference = $prevPref
 Write-Ok "Dependencies installed"
 
 # --- Done ---

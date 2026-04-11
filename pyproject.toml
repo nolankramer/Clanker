@@ -39,8 +39,8 @@ dependencies = [
 clanker = "clanker.main:main"
 clanker-setup = "clanker.setup.cli:main"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.7",
