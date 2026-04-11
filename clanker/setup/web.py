@@ -132,7 +132,8 @@ class _Handler(BaseHTTPRequestHandler):
         from clanker.setup.ollama import pull_model
 
         model = body.get("model", "llama3.2")
-        self._json_response(pull_model(model))
+        base_url = body.get("base_url", "http://localhost:11434")
+        self._json_response(pull_model(model, base_url=base_url))
 
     def _handle_ollama_optimize(self, body: dict[str, Any]) -> None:
         from clanker.setup.ollama import apply_systemd_env, get_optimization_advice

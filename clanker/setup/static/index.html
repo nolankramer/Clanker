@@ -942,12 +942,13 @@ async function installOllamaRemote() {
 }
 
 async function pullModel(model) {
-  setStatus('ollama-pull-status', 'loading', 'Downloading ' + model + ' (this may take a few minutes)...');
-  const r = await api('/api/ollama/pull', {model: model});
+  const url = getOllamaUrl();
+  setStatus('ollama-pull-status', 'loading', 'Downloading ' + model + ' to ' + url + ' (this may take a few minutes)...');
+  const r = await api('/api/ollama/pull', {model: model, base_url: url});
   if (r.ok) {
     setStatus('ollama-pull-status', 'ok', 'Downloaded ' + model);
     // Refresh model list
-    const r2 = await api('/api/test/ollama', {base_url: getOllamaUrl()});
+    const r2 = await api('/api/test/ollama', {base_url: url});
     if (r2.ok && r2.models) populateSelect('ollama-model', r2.models, model);
   } else {
     setStatus('ollama-pull-status', 'err', r.message);

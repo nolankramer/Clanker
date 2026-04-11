@@ -207,7 +207,8 @@ def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
                 *ssh_args,
                 "curl -fsSL https://ollama.com/install.sh | sh && "
                 "systemctl start ollama 2>/dev/null; "
-                "ollama --version",
+                "sleep 2; "
+                "/usr/local/bin/ollama --version 2>/dev/null || ollama --version",
             ],
             capture_output=True, text=True, timeout=300,
         )
@@ -229,17 +230,28 @@ def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
 def pull_model(
     model: str, base_url: str = "http://localhost:11434"
 ) -> dict[str, Any]:
-    """Pull a model via Ollama CLI (shows progress)."""
+    """Pull a model via Ollama API (works for both local and remote)."""
+    url = base_url.rstrip("/")
     try:
-        result = subprocess.run(
-            ["ollama", "pull", model],
-            capture_output=True, text=True, timeout=600,
-        )
-        if result.returncode == 0:
-            return {"ok": True, "message": f"Pulled {model}"}
-        return {"ok": False, "message": result.stderr[:500]}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "message": f"Pull of {model} timed out"}
+        # Use the Ollama API instead of CLI — works for remote too
+        with httpx.Client(timeout=600.0) as client:
+            resp = client.post(
+                f"{url}/api/pull",
+                json={"name": model, "stream": False},
+            )
+            if resp.status_code == 200:
+                return {"ok": True, "message": f"Pulled {model}"}
+            return {
+                "ok": False,
+                "message": f"Pull failed: HTTP {resp.status_code}",
+            }
+    except httpx.ReadTimeout:
+        return {"ok": False, "message": f"Pull of {model} timed out (large download)"}
+    except httpx.ConnectError:
+        return {
+            "ok": False,
+            "message": f"Cannot connect to Ollama at {url}. Is it running?",
+        }
     except Exception as exc:
         return {"ok": False, "message": str(exc)}
 
