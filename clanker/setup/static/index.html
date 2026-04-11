@@ -343,14 +343,17 @@
     </h3>
     <div id="anthropic-fields">
       <div class="field">
-        <label>API Key</label>
+        <label>API Key <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);font-size:0.8rem;margin-left:0.5rem">Get key &rarr;</a></label>
         <input id="anthropic-key" type="password" placeholder="sk-ant-...">
       </div>
       <div class="field">
         <label>Model</label>
-        <input id="anthropic-model" type="text" value="claude-sonnet-4-20250514">
+        <select id="anthropic-model">
+          <option value="claude-sonnet-4-20250514" selected>claude-sonnet-4-20250514</option>
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001 (fast)</option>
+        </select>
       </div>
-      <button class="btn btn-test" onclick="testAnthropic()">Test</button>
+      <button class="btn btn-test" onclick="testAnthropic()">Test &amp; Load Models</button>
       <div class="status" id="anthropic-status"></div>
     </div>
   </div>
@@ -362,14 +365,17 @@
     </h3>
     <div id="openai-fields" style="display:none">
       <div class="field">
-        <label>API Key</label>
+        <label>API Key <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent);font-size:0.8rem;margin-left:0.5rem">Get key &rarr;</a></label>
         <input id="openai-key" type="password" placeholder="sk-...">
       </div>
       <div class="field">
         <label>Model</label>
-        <input id="openai-model" type="text" value="gpt-4o">
+        <select id="openai-model">
+          <option value="gpt-4o" selected>gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini (fast/cheap)</option>
+        </select>
       </div>
-      <button class="btn btn-test" onclick="testOpenAI()">Test</button>
+      <button class="btn btn-test" onclick="testOpenAI()">Test &amp; Load Models</button>
       <div class="status" id="openai-status"></div>
     </div>
   </div>
@@ -386,10 +392,20 @@
       </div>
       <div class="field">
         <label>Model</label>
-        <input id="ollama-model" type="text" value="llama3.2">
+        <select id="ollama-model">
+          <option value="llama3.2" selected>llama3.2</option>
+        </select>
       </div>
-      <button class="btn btn-test" onclick="testOllama()">Test</button>
+      <button class="btn btn-test" onclick="testOllama()" style="margin-right:0.5rem">Test</button>
+      <button class="btn btn-test" onclick="installOllama()">Install Ollama</button>
       <div class="status" id="ollama-status"></div>
+      <div id="ollama-pull-section" style="display:none;margin-top:0.75rem;">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Pull recommended models:</p>
+        <button class="btn btn-test" onclick="pullModel('llama3.2')" style="margin:2px">llama3.2 (2GB)</button>
+        <button class="btn btn-test" onclick="pullModel('llava')" style="margin:2px">llava vision (4.5GB)</button>
+        <button class="btn btn-test" onclick="pullModel('nomic-embed-text')" style="margin:2px">embeddings (275MB)</button>
+        <div class="status" id="ollama-pull-status"></div>
+      </div>
     </div>
   </div>
 
@@ -724,6 +740,9 @@ async function testAnthropic() {
     api_key: document.getElementById('anthropic-key').value,
   });
   setStatus('anthropic-status', r.ok ? 'ok' : 'err', r.message);
+  if (r.ok && r.models && r.models.length) {
+    populateSelect('anthropic-model', r.models, 'claude-sonnet-4-20250514');
+  }
 }
 
 async function testOpenAI() {
@@ -732,6 +751,9 @@ async function testOpenAI() {
     api_key: document.getElementById('openai-key').value,
   });
   setStatus('openai-status', r.ok ? 'ok' : 'err', r.message);
+  if (r.ok && r.models && r.models.length) {
+    populateSelect('openai-model', r.models, 'gpt-4o');
+  }
 }
 
 async function testOllama() {
@@ -740,8 +762,53 @@ async function testOllama() {
     base_url: document.getElementById('ollama-url').value,
   });
   setStatus('ollama-status', r.ok ? 'ok' : 'err', r.message);
-  if (r.ok && r.models && r.models.length) {
-    document.getElementById('ollama-model').value = r.models[0];
+  if (r.ok) {
+    document.getElementById('ollama-pull-section').style.display = 'block';
+    if (r.models && r.models.length) {
+      populateSelect('ollama-model', r.models, r.models[0]);
+    }
+  }
+}
+
+async function installOllama() {
+  setStatus('ollama-status', 'loading', 'Installing Ollama (this may take a minute)...');
+  const r = await api('/api/ollama/install', {});
+  setStatus('ollama-status', r.ok ? 'ok' : 'err', r.message || r.ok ? 'Installed' : 'Failed');
+  if (r.ok) {
+    document.getElementById('ollama-pull-section').style.display = 'block';
+  }
+}
+
+async function pullModel(model) {
+  setStatus('ollama-pull-status', 'loading', 'Pulling ' + model + '...');
+  const r = await api('/api/ollama/pull', {model: model});
+  setStatus('ollama-pull-status', r.ok ? 'ok' : 'err', r.message || model);
+  if (r.ok) {
+    // Refresh model list
+    const r2 = await api('/api/test/ollama', {
+      base_url: document.getElementById('ollama-url').value,
+    });
+    if (r2.ok && r2.models) {
+      populateSelect('ollama-model', r2.models, model);
+    }
+  }
+}
+
+function populateSelect(selectId, options, defaultValue) {
+  const sel = document.getElementById(selectId);
+  const current = sel.value;
+  sel.innerHTML = '';
+  for (const opt of options) {
+    const el = document.createElement('option');
+    el.value = opt;
+    el.textContent = opt;
+    sel.appendChild(el);
+  }
+  // Restore previous selection or use default
+  if (options.includes(current)) {
+    sel.value = current;
+  } else if (options.includes(defaultValue)) {
+    sel.value = defaultValue;
   }
 }
 

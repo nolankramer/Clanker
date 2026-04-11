@@ -50,8 +50,8 @@ def test_ha(url: str, token: str) -> dict[str, Any]:
 
 
 def test_anthropic(api_key: str) -> dict[str, Any]:
-    """Validate an Anthropic API key."""
-    result: dict[str, Any] = {"ok": False, "message": ""}
+    """Validate an Anthropic API key and list available models."""
+    result: dict[str, Any] = {"ok": False, "message": "", "models": []}
     try:
         with httpx.Client(timeout=10.0) as client:
             resp = client.get(
@@ -65,8 +65,12 @@ def test_anthropic(api_key: str) -> dict[str, Any]:
                 result["message"] = "Invalid API key"
                 return result
             resp.raise_for_status()
+            data = resp.json()
+            models = [m.get("id", "") for m in data.get("data", [])]
+            # Sort: newest/best first
+            result["models"] = sorted(models, reverse=True)
             result["ok"] = True
-            result["message"] = "API key valid"
+            result["message"] = f"API key valid ({len(models)} models)"
     except httpx.ConnectError:
         result["message"] = "Cannot reach api.anthropic.com"
     except Exception as exc:
@@ -75,8 +79,8 @@ def test_anthropic(api_key: str) -> dict[str, Any]:
 
 
 def test_openai(api_key: str, base_url: str | None = None) -> dict[str, Any]:
-    """Validate an OpenAI (or compatible) API key."""
-    result: dict[str, Any] = {"ok": False, "message": ""}
+    """Validate an OpenAI (or compatible) API key and list models."""
+    result: dict[str, Any] = {"ok": False, "message": "", "models": []}
     url = (base_url or "https://api.openai.com/v1").rstrip("/")
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -88,8 +92,16 @@ def test_openai(api_key: str, base_url: str | None = None) -> dict[str, Any]:
                 result["message"] = "Invalid API key"
                 return result
             resp.raise_for_status()
+            data = resp.json()
+            models = [m.get("id", "") for m in data.get("data", [])]
+            # Filter to chat models, sort newest first
+            chat_models = [
+                m for m in models
+                if any(p in m for p in ("gpt-4", "gpt-3.5", "o1", "o3"))
+            ]
+            result["models"] = sorted(chat_models, reverse=True) or sorted(models, reverse=True)
             result["ok"] = True
-            result["message"] = "API key valid"
+            result["message"] = f"API key valid ({len(result['models'])} models)"
     except httpx.ConnectError:
         result["message"] = f"Cannot connect to {url}"
     except Exception as exc:
