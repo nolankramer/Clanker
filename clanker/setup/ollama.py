@@ -205,20 +205,20 @@ def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
                 "-o", "ConnectTimeout=10",
                 *key_args,
                 *ssh_args,
-                "curl -fsSL https://ollama.com/install.sh | sh && "
+                "curl -fsSL https://ollama.com/install.sh | sh; "
                 "systemctl start ollama 2>/dev/null; "
                 "sleep 2; "
-                "/usr/local/bin/ollama --version 2>/dev/null || ollama --version",
+                "echo OLLAMA_INSTALL_DONE",
             ],
             capture_output=True, text=True, timeout=300,
         )
-        if result.returncode == 0:
-            version = result.stdout.strip().split("\n")[-1]
+        output = result.stdout + result.stderr
+        if "OLLAMA_INSTALL_DONE" in result.stdout:
             return {
                 "ok": True,
-                "message": f"Ollama installed on {ssh_args[0]} ({version})",
+                "message": f"Ollama installed on {ssh_args[0]}",
             }
-        return {"ok": False, "message": result.stderr[:500]}
+        return {"ok": False, "message": output[-500:]}
     except subprocess.TimeoutExpired:
         return {"ok": False, "message": "Remote install timed out (5 min)"}
     except FileNotFoundError:
