@@ -66,7 +66,9 @@ try {
     Write-Host "  Installing uv..." -ForegroundColor DarkGray
     irm https://astral.sh/uv/install.ps1 | iex
     # Refresh PATH
-    $env:PATH = "$HOME\.local\bin;$HOME\.cargo\bin;$env:PATH"
+    $localBin = Join-Path $HOME ".local\bin"
+    $cargoBin = Join-Path $HOME ".cargo\bin"
+    $env:PATH = "$localBin;$cargoBin;$env:PATH"
     Write-Ok "uv installed"
 }
 
@@ -105,7 +107,7 @@ Write-Host ""
 
 # --- Offer to run setup ---
 $answer = Read-Host "  Run the setup wizard now? [Y/n]"
-if (-not $answer -or $answer -match "^[Yy]") {
+if (-not $answer -or $answer -match '^[Yy]') {
     Write-Host ""
     & uv run clanker-setup
 }
