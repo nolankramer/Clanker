@@ -912,7 +912,13 @@ async function testSSHForOllama() {
     if (caps.docker) msg += ' | Docker available';
     setStatus('ollama-ssh-status', 'ok', msg);
   } else {
-    setStatus('ollama-ssh-status', 'err', r.message + ' (default password: password)');
+    let hint = r.message;
+    if (hint.includes('Connection refused') || hint.includes('port')) {
+      hint += '. Check that the SSH add-on is started and port 22 is mapped in Network settings.';
+    } else if (hint.includes('Permission denied') || hint.includes('auth')) {
+      hint += '. Make sure you generated a key above and pasted it into the SSH add-on Authorized Keys.';
+    }
+    setStatus('ollama-ssh-status', 'err', hint);
   }
 }
 
