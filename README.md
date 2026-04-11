@@ -10,29 +10,29 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        Voice Surfaces                                │
 │  ESP32-S3 satellites · HA Voice PE · Mobile app · Browser            │
-│  (HA Assist pipeline handles STT/wake-word/TTS — Clanker is the     │
+│  (HA Assist pipeline handles STT/wake-word/TTS — Clanker is the      │
 │   conversation agent behind it)                                      │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼──────────────────────────────────────┐
 │                        Clanker Core                                  │
 │                                                                      │
-│  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
-│  │  Brain   │  │  Memory  │  │  Vision  │  │ Announce │             │
-│  │ Router   │  │ Struct.  │  │ Frigate  │  │  Router  │             │
-│  │          │  │ Semantic │  │  VLM     │  │Occupancy │             │
-│  │ Anthropic│  │          │  │  Faces   │  │  Quiet   │             │
-│  │ OpenAI   │  │  SQLite  │  │          │  │  Hours   │             │
-│  │ Ollama   │  │ Markdown │  │          │  │          │             │
-│  │ Generic  │  │ ChromaDB │  │          │  │          │             │
-│  └─────────┘  └──────────┘  └──────────┘  └──────────┘             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │  Brain   │  │  Memory  │  │  Vision  │  │ Announce │              │
+│  │ Router   │  │ Struct.  │  │ Frigate  │  │  Router  │              │
+│  │          │  │ Semantic │  │  VLM     │  │Occupancy │              │
+│  │ Anthropic│  │          │  │  Faces   │  │  Quiet   │              │
+│  │ OpenAI   │  │  SQLite  │  │          │  │  Hours   │              │
+│  │ Ollama   │  │ Markdown │  │          │  │          │              │
+│  │ Generic  │  │ ChromaDB │  │          │  │          │              │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘              │
 │                                                                      │
-│  ┌───────────┐  ┌──────────┐  ┌────────┐  ┌──────────┐             │
-│  │ Proactive │  │  Remote  │  │  MCP   │  │  Convo   │             │
-│  │ Scheduler │  │ Telegram │  │ Server │  │  Agent   │             │
-│  │ Briefing  │  │  SMS     │  │ Tools  │  │ Sessions │             │
-│  │ Handlers  │  │  Push    │  │        │  │  HTTP API│             │
-│  └───────────┘  └──────────┘  └────────┘  └──────────┘             │
+│  ┌───────────┐  ┌──────────┐  ┌────────┐  ┌──────────┐               │
+│  │ Proactive │  │  Remote  │  │  MCP   │  │  Convo   │               │
+│  │ Scheduler │  │ Telegram │  │ Server │  │  Agent   │               │
+│  │ Briefing  │  │  SMS     │  │ Tools  │  │ Sessions │               │
+│  │ Handlers  │  │  Push    │  │        │  │  HTTP API│               │
+│  └───────────┘  └──────────┘  └────────┘  └──────────┘               │
 │                                                                      │
 │  Tools exposed to brain via MCP:                                     │
 │  ha_call_service · ha_get_state · ha_find_entities                   │
@@ -46,7 +46,7 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 │  Devices · Entities · Automations · Frigate · Occupancy sensors      │
 │  TTS targets · Notify services · Mobile app · Exposed entities       │
 │                                                                      │
-│  HA's exposed-entities allowlist = hard safety gate                   │
+│  HA's exposed-entities allowlist = hard safety gate                  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
