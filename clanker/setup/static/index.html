@@ -360,28 +360,30 @@
           <input id="ollama-url" type="text" value="http://localhost:11434">
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-          <button class="btn btn-test" onclick="testOllama()">Test Connection</button>
+          <button class="btn btn-test" onclick="testOllama()">Test Ollama Connection</button>
           <button class="btn btn-primary" onclick="installOllama()" style="font-size:0.85rem">Install Ollama</button>
         </div>
       </div>
 
       <div id="ollama-remote-setup" style="display:none">
         <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">
-          Requires the <strong>SSH &amp; Web Terminal</strong> add-on in HA
-          (Settings &rarr; Add-ons &rarr; SSH &amp; Web Terminal).
+          Requires the <strong>SSH &amp; Web Terminal</strong> app in HA
+          (Settings &rarr; Apps &rarr; search "SSH"). Make sure to Start it.
         </p>
         <div class="field">
           <label>SSH target</label>
-          <input id="ollama-ssh-host" type="text" placeholder="root@192.168.1.50 -p 22222">
+          <input id="ollama-ssh-host" type="text" placeholder="root@192.168.1.50">
         </div>
         <div class="field">
-          <label>Ollama URL (from Clanker's perspective)</label>
+          <label>Ollama URL (how Clanker reaches Ollama after install)</label>
           <input id="ollama-remote-url" type="text" placeholder="http://192.168.1.50:11434">
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-          <button class="btn btn-primary" onclick="installOllamaRemote()" style="font-size:0.85rem">Install on Remote</button>
-          <button class="btn btn-test" onclick="testOllama()">Test Connection</button>
+          <button class="btn btn-test" onclick="testSSHForOllama()">Test SSH</button>
+          <button class="btn btn-primary" onclick="installOllamaRemote()" style="font-size:0.85rem">Install Ollama on Remote</button>
+          <button class="btn btn-test" onclick="testOllama()">Test Ollama Connection</button>
         </div>
+        <div class="status" id="ollama-ssh-status"></div>
       </div>
 
       <div class="status" id="ollama-status"></div>
@@ -822,7 +824,7 @@ function ollamaLocationChanged() {
         const sshField = document.getElementById('ollama-ssh-host');
         const urlField = document.getElementById('ollama-remote-url');
         if (!sshField.value) {
-          sshField.value = 'root@' + host + ' -p 22222';
+          sshField.value = 'root@' + host;
         }
         if (!urlField.value) {
           urlField.value = 'http://' + host + ':11434';
@@ -860,6 +862,21 @@ async function installOllama() {
     }
   } else {
     setStatus('ollama-status', 'ok', 'Ollama installed. Start it manually: ollama serve');
+  }
+}
+
+async function testSSHForOllama() {
+  const host = document.getElementById('ollama-ssh-host').value;
+  if (!host) { setStatus('ollama-ssh-status', 'err', 'Enter SSH target'); return; }
+  setStatus('ollama-ssh-status', 'loading', 'Testing SSH to ' + host + '...');
+  const r = await api('/api/deploy/test-ssh', {host: host});
+  if (r.ok) {
+    let msg = 'SSH connected';
+    const caps = r.capabilities || {};
+    if (caps.docker) msg += ' | Docker available';
+    setStatus('ollama-ssh-status', 'ok', msg);
+  } else {
+    setStatus('ollama-ssh-status', 'err', r.message + ' (default password: password)');
   }
 }
 
