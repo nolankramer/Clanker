@@ -126,7 +126,13 @@ See `docs/safety.md` for the full safety model.
 curl -fsSL https://raw.githubusercontent.com/nolankramer/clanker/main/install.sh | bash
 ```
 
-This clones the repo, installs [uv](https://docs.astral.sh/uv/), installs dependencies, and launches the setup wizard.
+### One-liner (Windows PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/nolankramer/clanker/main/install.ps1 | iex
+```
+
+Both install scripts clone the repo, install [uv](https://docs.astral.sh/uv/), install dependencies, and launch the setup wizard. The wizard handles everything — API keys, config files, Ollama setup, voice pipeline. No manual file editing needed.
 
 ### Setup Wizard
 
