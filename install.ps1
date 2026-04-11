@@ -73,16 +73,19 @@ try {
 # --- Clone or update ---
 Write-Step "Getting Clanker"
 $gitDir = Join-Path $INSTALL_DIR ".git"
+$prevPref = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
 if (Test-Path $gitDir) {
     Write-Ok ("Found existing install at " + $INSTALL_DIR)
     Push-Location $INSTALL_DIR
-    & git pull --ff-only origin main 2>$null
+    & git pull --ff-only origin main 2>&1 | Out-Null
     Write-Ok "Updated to latest"
 } else {
-    & git clone $REPO $INSTALL_DIR
+    & git clone $REPO $INSTALL_DIR 2>&1 | Out-Null
     Push-Location $INSTALL_DIR
     Write-Ok ("Cloned to " + $INSTALL_DIR)
 }
+$ErrorActionPreference = $prevPref
 
 # --- Install dependencies ---
 Write-Step "Installing dependencies"
