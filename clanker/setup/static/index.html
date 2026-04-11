@@ -366,10 +366,13 @@
       </div>
 
       <div id="ollama-remote-setup" style="display:none">
-        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">
-          Requires the <strong>SSH &amp; Web Terminal</strong> app in HA
-          (Settings &rarr; Apps &rarr; search "SSH"). Make sure to Start it.
-        </p>
+        <div style="background:var(--surface2);border-radius:8px;padding:1rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-dim);line-height:1.6">
+          <strong style="color:var(--accent)">HA SSH Setup (required first):</strong><br>
+          1. In HA: Settings &rarr; Apps &rarr; search "SSH" &rarr; Install <strong>Terminal &amp; SSH</strong><br>
+          2. In the add-on config, set a <strong>password</strong> (it's empty by default)<br>
+          3. Under Network, set port <strong>22</strong> to <strong>22</strong> (it's disabled by default)<br>
+          4. Click <strong>Save</strong>, then <strong>Start</strong> the add-on
+        </div>
         <div class="field">
           <label>SSH target</label>
           <input id="ollama-ssh-host" type="text" placeholder="root@192.168.1.50">
