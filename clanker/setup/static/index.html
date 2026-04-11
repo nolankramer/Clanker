@@ -366,12 +366,14 @@
       </div>
 
       <div id="ollama-remote-setup" style="display:none">
-        <div style="background:var(--surface2);border-radius:8px;padding:1rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-dim);line-height:1.6">
-          <strong style="color:var(--accent)">HA SSH Setup:</strong><br>
+        <div style="background:var(--surface2);border-radius:8px;padding:1rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-dim);line-height:1.7">
+          <strong style="color:var(--accent)">HA SSH Setup (do these in order!):</strong><br>
           1. In HA: Settings &rarr; Apps &rarr; search "SSH" &rarr; Install <strong>Terminal &amp; SSH</strong><br>
-          2. Click <strong>Generate SSH Key</strong> below, then paste the key into the add-on's <strong>Authorized Keys</strong> config<br>
-          3. Under Network, set port <strong>22</strong> to <strong>22</strong> (disabled by default)<br>
-          4. Click <strong>Save</strong>, then <strong>Start</strong> the add-on
+          2. Click <strong>Generate SSH Key</strong> below and <strong>copy</strong> the key<br>
+          3. In the SSH add-on <strong>Configuration</strong> tab, paste the key into <strong>Authorized Keys</strong><br>
+          4. In the <strong>Network</strong> section, type <strong>22</strong> in the port field (it's empty by default)<br>
+          5. Click <strong>Save</strong><br>
+          6. <strong>Now</strong> click <strong>Start</strong> (the add-on won't start without a key or password)
         </div>
         <div style="margin-bottom:0.75rem">
           <button class="btn btn-primary" onclick="generateSSHKey()" style="font-size:0.85rem">Generate SSH Key</button>
@@ -913,10 +915,12 @@ async function testSSHForOllama() {
     setStatus('ollama-ssh-status', 'ok', msg);
   } else {
     let hint = r.message;
-    if (hint.includes('Connection refused') || hint.includes('port')) {
-      hint += '. Check that the SSH add-on is started and port 22 is mapped in Network settings.';
-    } else if (hint.includes('Permission denied') || hint.includes('auth')) {
-      hint += '. Make sure you generated a key above and pasted it into the SSH add-on Authorized Keys.';
+    if (hint.includes('Connection refused') || hint.includes('UNKNOWN') || hint.includes('port')) {
+      hint += '. The SSH add-on may not be running. Follow all 6 steps above in order — paste the key BEFORE starting the add-on.';
+    } else if (hint.includes('Permission denied') || hint.includes('auth') || hint.includes('publickey')) {
+      hint += '. The key was not accepted. Paste the generated key into the SSH add-on Authorized Keys, Save, then Restart the add-on.';
+    } else if (hint.includes('timed out')) {
+      hint += '. Check that port 22 is set in the SSH add-on Network settings.';
     }
     setStatus('ollama-ssh-status', 'err', hint);
   }
