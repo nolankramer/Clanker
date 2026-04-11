@@ -349,8 +349,8 @@
       <div class="field">
         <label>Where is Ollama running?</label>
         <select id="ollama-location" onchange="ollamaLocationChanged()">
-          <option value="local" selected>This machine</option>
-          <option value="remote">Remote server (HA device / other)</option>
+          <option value="local" selected>This machine (local)</option>
+          <option value="remote">HA device (as an add-on)</option>
         </select>
       </div>
 
@@ -367,36 +367,20 @@
 
       <div id="ollama-remote-setup" style="display:none">
         <div style="background:var(--surface2);border-radius:8px;padding:1rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-dim);line-height:1.7">
-          <strong style="color:var(--accent)">HA SSH Setup (do these in order!):</strong><br>
-          1. In HA: Settings &rarr; Apps &rarr; search "SSH" &rarr; Install <strong>Terminal &amp; SSH</strong><br>
-          2. Click <strong>Generate SSH Key</strong> below and <strong>copy</strong> the key<br>
-          3. In the SSH add-on <strong>Configuration</strong> tab, paste the key into <strong>Authorized Keys</strong><br>
-          4. In the <strong>Network</strong> section, type <strong>22</strong> in the port field (it's empty by default)<br>
-          5. Click <strong>Save</strong><br>
-          6. <strong>Now</strong> click <strong>Start</strong> (the add-on won't start without a key or password)
-        </div>
-        <div style="margin-bottom:0.75rem">
-          <button class="btn btn-primary" onclick="generateSSHKey()" style="font-size:0.85rem">Generate SSH Key</button>
-          <div id="ssh-key-display" style="display:none;margin-top:0.75rem">
-            <label style="font-size:0.85rem;color:var(--text-dim)">Copy this key into the HA SSH add-on's Authorized Keys:</label>
-            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.6rem;margin-top:0.4rem;font-family:monospace;font-size:0.75rem;word-break:break-all;color:var(--green);cursor:pointer" onclick="copySSHKey()" title="Click to copy" id="ssh-public-key"></div>
-            <div class="status" id="ssh-key-status"></div>
-          </div>
+          <strong style="color:var(--accent)">Install Ollama on your HA device:</strong><br>
+          1. In HA: Settings &rarr; Apps &rarr; <strong>&#8942;</strong> (top-right) &rarr; <strong>Repositories</strong><br>
+          2. Add: <code style="color:var(--green);cursor:pointer" onclick="navigator.clipboard.writeText('https://github.com/alexbelgium/hassio-addons')">https://github.com/alexbelgium/hassio-addons</code> (click to copy)<br>
+          3. Search for <strong>Ollama</strong> in the App Store &rarr; <strong>Install</strong><br>
+          4. Start the Ollama add-on<br>
+          5. Set the URL below to <strong>http://&lt;HA-IP&gt;:11434</strong> and test
         </div>
         <div class="field">
-          <label>SSH target</label>
-          <input id="ollama-ssh-host" type="text" placeholder="root@192.168.1.50">
-        </div>
-        <div class="field">
-          <label>Ollama URL (how Clanker reaches Ollama after install)</label>
+          <label>Ollama URL (the Ollama add-on on your HA device)</label>
           <input id="ollama-remote-url" type="text" placeholder="http://192.168.1.50:11434">
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-          <button class="btn btn-test" onclick="testSSHForOllama()">Test SSH</button>
-          <button class="btn btn-primary" onclick="installOllamaRemote()" style="font-size:0.85rem">Install Ollama on Remote</button>
           <button class="btn btn-test" onclick="testOllama()">Test Ollama Connection</button>
         </div>
-        <div class="status" id="ollama-ssh-status"></div>
       </div>
 
       <div class="status" id="ollama-status"></div>
