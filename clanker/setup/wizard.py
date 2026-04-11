@@ -19,24 +19,33 @@ import yaml
 def test_ha(url: str, token: str) -> dict[str, Any]:
     """Test Home Assistant connection via its REST API."""
     result: dict[str, Any] = {"ok": False, "message": "", "ha_version": ""}
+    base = url.rstrip("/")
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=10.0, verify=False) as client:
             resp = client.get(
-                f"{url.rstrip('/')}/api/",
+                f"{base}/api/",
                 headers={"Authorization": f"Bearer {token}"},
+                follow_redirects=True,
             )
             if resp.status_code == 401:
                 result["message"] = "Invalid access token"
+                return result
+            if resp.status_code == 403:
+                result["message"] = "Access forbidden (token may lack API access)"
                 return result
             resp.raise_for_status()
             data = resp.json()
             result["ha_version"] = data.get("version", "unknown")
             result["ok"] = True
-            result["message"] = f"Connected — HA {result['ha_version']}"
+            result["message"] = f"Connected - HA {result['ha_version']}"
     except httpx.ConnectError:
-        result["message"] = f"Cannot connect to {url}"
+        result["message"] = f"Cannot connect to {base} - is HA running?"
+    except httpx.ReadTimeout:
+        result["message"] = f"Connection to {base} timed out"
+    except httpx.HTTPStatusError as exc:
+        result["message"] = f"HTTP {exc.response.status_code} from {base}"
     except Exception as exc:
-        result["message"] = str(exc)
+        result["message"] = f"Error: {type(exc).__name__}: {exc}"
     return result
 
 
