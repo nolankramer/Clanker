@@ -109,10 +109,18 @@ Write-Host "  Ollama setup, voice pipeline. No manual file editing." -Foreground
 Write-Host ""
 
 # --- Offer to run setup ---
-$answer = Read-Host "  Run the setup wizard now? (Y/n)"
-if ((-not $answer) -or ($answer -match '^[Yy]')) {
+Write-Host "  Run the setup wizard now?" -ForegroundColor White
+Write-Host "    1) Browser-based (recommended)" -ForegroundColor Cyan
+Write-Host "    2) CLI (terminal)" -ForegroundColor Cyan
+Write-Host "    3) Skip" -ForegroundColor DarkGray
+Write-Host ""
+$answer = Read-Host "  Choice (1/2/3)"
+if ($answer -eq "2") {
     Write-Host ""
     & uv run clanker-setup
+} elseif ($answer -ne "3") {
+    Write-Host ""
+    & uv run clanker-setup --web
 }
 
 Pop-Location

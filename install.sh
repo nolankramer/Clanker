@@ -101,10 +101,18 @@ echo ""
 
 # --- Offer to run setup ---
 if [ -t 0 ]; then
-    echo -ne "  Run the setup wizard now? [Y/n] "
+    echo -e "  Run the setup wizard now?"
+    echo -e "    ${CYAN}1${RESET}) Browser-based (recommended)"
+    echo -e "    ${CYAN}2${RESET}) CLI (terminal)"
+    echo -e "    ${DIM}3${RESET}) Skip"
+    echo ""
+    echo -ne "  Choice [1/2/3]: "
     read -r answer
-    if [ -z "$answer" ] || [ "${answer,,}" = "y" ]; then
+    if [ "$answer" = "2" ]; then
         echo ""
         uv run clanker-setup
+    elif [ "$answer" != "3" ]; then
+        echo ""
+        uv run clanker-setup --web
     fi
 fi
