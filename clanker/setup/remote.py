@@ -21,9 +21,17 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 def _run_ssh(host: str, command: str, *, timeout: int = 30) -> dict[str, Any]:
     """Run a command on a remote host via SSH."""
+    from clanker.setup.ssh_keys import get_ssh_key_args
+
     try:
+        key_args = get_ssh_key_args()
+        host_parts = host.strip().split()
         result = subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", host, command],
+            [
+                "ssh", "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=10",
+                *key_args, *host_parts, command,
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,

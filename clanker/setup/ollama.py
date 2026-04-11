@@ -194,12 +194,16 @@ def _parse_ssh_target(ssh_host: str) -> list[str]:
 
 def install_ollama_remote(ssh_host: str) -> dict[str, Any]:
     """Install Ollama on a remote machine via SSH."""
+    from clanker.setup.ssh_keys import get_ssh_key_args
+
     try:
         ssh_args = _parse_ssh_target(ssh_host)
+        key_args = get_ssh_key_args()
         result = subprocess.run(
             [
                 "ssh", "-o", "StrictHostKeyChecking=no",
                 "-o", "ConnectTimeout=10",
+                *key_args,
                 *ssh_args,
                 "curl -fsSL https://ollama.com/install.sh | sh && "
                 "systemctl start ollama 2>/dev/null; "

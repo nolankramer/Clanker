@@ -63,6 +63,7 @@ class _Handler(BaseHTTPRequestHandler):
             "/api/discover": self._handle_discover,
             "/api/voice/install-component": self._handle_install_component,
             "/api/discover/ha": self._handle_discover_ha,
+            "/api/ssh/generate-key": self._handle_ssh_generate_key,
             "/api/ollama/install": self._handle_ollama_install,
             "/api/ollama/pull": self._handle_ollama_pull,
             "/api/ollama/install-remote": self._handle_ollama_install_remote,
@@ -107,6 +108,15 @@ class _Handler(BaseHTTPRequestHandler):
         entities = discover_entities(url, token)
         rooms = infer_rooms(entities)
         self._json_response({"entities": entities, "rooms": rooms})
+
+    def _handle_ssh_generate_key(self, body: dict[str, Any]) -> None:
+        from clanker.setup.ssh_keys import get_or_create_setup_key
+
+        try:
+            result = get_or_create_setup_key()
+            self._json_response({"ok": True, **result})
+        except Exception as exc:
+            self._json_response({"ok": False, "message": str(exc)})
 
     def _handle_ollama_install(self, body: dict[str, Any]) -> None:
         from clanker.setup.ollama import install_ollama

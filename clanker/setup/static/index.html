@@ -367,11 +367,19 @@
 
       <div id="ollama-remote-setup" style="display:none">
         <div style="background:var(--surface2);border-radius:8px;padding:1rem;margin-bottom:0.75rem;font-size:0.85rem;color:var(--text-dim);line-height:1.6">
-          <strong style="color:var(--accent)">HA SSH Setup (required first):</strong><br>
+          <strong style="color:var(--accent)">HA SSH Setup:</strong><br>
           1. In HA: Settings &rarr; Apps &rarr; search "SSH" &rarr; Install <strong>Terminal &amp; SSH</strong><br>
-          2. In the add-on config, set a <strong>password</strong> (it's empty by default)<br>
-          3. Under Network, set port <strong>22</strong> to <strong>22</strong> (it's disabled by default)<br>
+          2. Click <strong>Generate SSH Key</strong> below, then paste the key into the add-on's <strong>Authorized Keys</strong> config<br>
+          3. Under Network, set port <strong>22</strong> to <strong>22</strong> (disabled by default)<br>
           4. Click <strong>Save</strong>, then <strong>Start</strong> the add-on
+        </div>
+        <div style="margin-bottom:0.75rem">
+          <button class="btn btn-primary" onclick="generateSSHKey()" style="font-size:0.85rem">Generate SSH Key</button>
+          <div id="ssh-key-display" style="display:none;margin-top:0.75rem">
+            <label style="font-size:0.85rem;color:var(--text-dim)">Copy this key into the HA SSH add-on's Authorized Keys:</label>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0.6rem;margin-top:0.4rem;font-family:monospace;font-size:0.75rem;word-break:break-all;color:var(--green);cursor:pointer" onclick="copySSHKey()" title="Click to copy" id="ssh-public-key"></div>
+            <div class="status" id="ssh-key-status"></div>
+          </div>
         </div>
         <div class="field">
           <label>SSH target</label>
@@ -866,6 +874,31 @@ async function installOllama() {
   } else {
     setStatus('ollama-status', 'ok', 'Ollama installed. Start it manually: ollama serve');
   }
+}
+
+async function generateSSHKey() {
+  const r = await api('/api/ssh/generate-key', {});
+  if (r.ok) {
+    document.getElementById('ssh-public-key').textContent = r.public_key;
+    document.getElementById('ssh-key-display').style.display = 'block';
+    setStatus('ssh-key-status', 'ok', 'Key generated. Copy it and paste into HA SSH add-on config.');
+  } else {
+    setStatus('ssh-key-status', 'err', r.message || 'Failed to generate key');
+  }
+}
+
+function copySSHKey() {
+  const key = document.getElementById('ssh-public-key').textContent;
+  navigator.clipboard.writeText(key).then(function() {
+    setStatus('ssh-key-status', 'ok', 'Copied to clipboard!');
+  }).catch(function() {
+    // Fallback: select the text
+    const range = document.createRange();
+    range.selectNode(document.getElementById('ssh-public-key'));
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    setStatus('ssh-key-status', 'ok', 'Select all + copy manually (Ctrl+C)');
+  });
 }
 
 async function testSSHForOllama() {
