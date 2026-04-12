@@ -34,35 +34,66 @@ AUTH_HEADER="Authorization: Bearer ${HA_TOKEN}"
 
 # --- Install companion add-ons (if enabled) ---
 
+find_addon_slug() {
+    # Search the store for an add-on by name substring, return its slug
+    local search="$1"
+    curl -s -H "$AUTH_HEADER" "$SUPERVISOR_API/store/addons" 2>/dev/null | \
+        python3 -c "
+import json, sys
+data = json.load(sys.stdin).get('data', {}).get('addons', [])
+for a in data:
+    if '${search}'.lower() in a.get('name','').lower() or '${search}'.lower() in a.get('slug','').lower():
+        print(a['slug'])
+        break
+" 2>/dev/null || echo ""
+}
+
 install_addon() {
-    local repo="$1" slug="$2" name="$3"
+    local repo="$1" slug="$2" name="$3" search_name="$4"
+
+    # If slug is empty, try to find it dynamically
+    if [ -z "$slug" ] && [ -n "$search_name" ]; then
+        slug=$(find_addon_slug "$search_name")
+        if [ -n "$slug" ]; then
+            echo "$name: found in store as $slug"
+        fi
+    fi
+
+    # Add repo first if we still don't have a slug
+    if [ -z "$slug" ] && [ -n "$repo" ]; then
+        echo "$name: adding repository $repo..."
+        curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+            -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" 2>&1 || true
+        echo "$name: waiting for store refresh..."
+        sleep 15
+        slug=$(find_addon_slug "$search_name")
+        if [ -n "$slug" ]; then
+            echo "$name: found in store as $slug"
+        else
+            echo "$name: ERROR - not found in store after adding repo"
+            return 1
+        fi
+    fi
+
+    if [ -z "$slug" ]; then
+        echo "$name: ERROR - could not determine slug"
+        return 1
+    fi
 
     echo "$name: checking status (slug: $slug)..."
 
     # Check if already running
-    local info_resp
-    info_resp=$(curl -s -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>&1) || true
     local state
-    state=$(echo "$info_resp" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('data',{}).get('state',''))" 2>/dev/null || echo "")
-    local installed
-    installed=$(echo "$info_resp" | python3 -c "import json,sys; d=json.load(sys.stdin); print('yes' if d.get('data',{}).get('version') else 'no')" 2>/dev/null || echo "no")
+    state=$(curl -s -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>/dev/null | \
+        python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('state',''))" 2>/dev/null || echo "")
 
     if [ "$state" = "started" ]; then
         echo "$name: already running"
         return 0
     fi
 
-    # Add repo if needed
-    if [ -n "$repo" ] && [ "$installed" = "no" ]; then
-        echo "$name: adding repository $repo..."
-        curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
-            -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" 2>&1 || true
-        echo "$name: waiting for store refresh..."
-        sleep 10
-    fi
-
-    # Install if not installed
-    if [ "$installed" = "no" ]; then
+    # Install if not running
+    if [ "$state" != "stopped" ]; then
         echo "$name: installing (this may take a few minutes)..."
         local install_resp
         install_resp=$(curl -s -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/install" 2>&1)
@@ -81,14 +112,14 @@ install_addon() {
 
 if [ "$INSTALL_OLLAMA" = "True" ] || [ "$INSTALL_OLLAMA" = "true" ]; then
     echo "=== Installing Ollama Add-on ==="
-    install_addon "https://github.com/SirUli/homeassistant-ollama-addon" "f89781a3_ollama" "Ollama"
+    install_addon "https://github.com/SirUli/homeassistant-ollama-addon" "" "Ollama" "ollama"
 fi
 
 if [ "$INSTALL_VOICE" = "True" ] || [ "$INSTALL_VOICE" = "true" ]; then
     echo "=== Installing Voice Add-ons ==="
-    install_addon "" "core_whisper" "Whisper (STT)"
-    install_addon "" "core_piper" "Piper (TTS)"
-    install_addon "" "core_openwakeword" "openWakeWord"
+    install_addon "" "" "Whisper (STT)" "whisper"
+    install_addon "" "" "Piper (TTS)" "piper"
+    install_addon "" "" "openWakeWord" "openwakeword"
 fi
 
 # Auto-detect Ollama add-on if URL not set
