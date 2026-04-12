@@ -37,34 +37,42 @@ AUTH_HEADER="Authorization: Bearer ${HA_TOKEN}"
 install_addon() {
     local repo="$1" slug="$2" name="$3"
 
+    echo "$name: checking status (slug: $slug)..."
+
     # Check if already installed
-    status=$(curl -sf -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('state',''))" 2>/dev/null || echo "")
+    local info_resp
+    info_resp=$(curl -s -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>&1) || true
+    local status
+    status=$(echo "$info_resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('state',''))" 2>/dev/null || echo "not_installed")
 
     if [ "$status" = "started" ]; then
         echo "$name: already running"
         return 0
     fi
 
-    if [ -z "$status" ]; then
-        # Add repo if needed
-        if [ -n "$repo" ]; then
-            echo "$name: adding repository..."
-            curl -sf -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
-                -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" >/dev/null 2>&1 || true
-            sleep 2
-        fi
+    # Add repo if needed
+    if [ -n "$repo" ]; then
+        echo "$name: adding repository $repo..."
+        local repo_resp
+        repo_resp=$(curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+            -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" 2>&1)
+        echo "$name: repo response: $repo_resp"
+        echo "$name: waiting for store refresh..."
+        sleep 10
+    fi
 
-        echo "$name: installing..."
-        curl -sf -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/install" >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
-            echo "$name: install failed"
-            return 1
-        fi
-        sleep 3
+    if [ "$status" = "not_installed" ] || [ -z "$status" ]; then
+        echo "$name: installing (this may take a few minutes)..."
+        local install_resp
+        install_resp=$(curl -s -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/install" 2>&1)
+        echo "$name: install response: $install_resp"
+        sleep 5
     fi
 
     echo "$name: starting..."
-    curl -sf -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/start" >/dev/null 2>&1 || true
+    local start_resp
+    start_resp=$(curl -s -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/start" 2>&1)
+    echo "$name: start response: $start_resp"
     sleep 5
     echo "$name: done"
 }
