@@ -4,6 +4,9 @@ FROM ${BUILD_FROM}
 # Install Python and build tools
 RUN apk add --no-cache python3 py3-pip git curl bash
 
+# Remove the externally-managed marker so we can pip install
+RUN rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED
+
 WORKDIR /app
 
 # Install uv
