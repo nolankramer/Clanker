@@ -19,6 +19,8 @@ read_opt() {
         "$OPTIONS_FILE" "$1" "$2"
 }
 
+INSTALL_OLLAMA=$(read_opt install_ollama_addon "False")
+INSTALL_VOICE=$(read_opt install_voice_addons "False")
 ANTHROPIC_KEY=$(read_opt anthropic_api_key "")
 OPENAI_KEY=$(read_opt openai_api_key "")
 OLLAMA_URL=$(read_opt ollama_url "")
@@ -26,6 +28,58 @@ OLLAMA_MODEL=$(read_opt ollama_model "llama3.2")
 DEFAULT_PROVIDER=$(read_opt default_provider "ollama")
 TTS_ENGINE=$(read_opt tts_engine "tts.piper")
 LOG_LEVEL=$(read_opt log_level "INFO")
+
+SUPERVISOR_API="http://supervisor"
+AUTH_HEADER="Authorization: Bearer ${HA_TOKEN}"
+
+# --- Install companion add-ons (if enabled) ---
+
+install_addon() {
+    local repo="$1" slug="$2" name="$3"
+
+    # Check if already installed
+    status=$(curl -sf -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('state',''))" 2>/dev/null || echo "")
+
+    if [ "$status" = "started" ]; then
+        echo "$name: already running"
+        return 0
+    fi
+
+    if [ -z "$status" ]; then
+        # Add repo if needed
+        if [ -n "$repo" ]; then
+            echo "$name: adding repository..."
+            curl -sf -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+                -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" >/dev/null 2>&1 || true
+            sleep 2
+        fi
+
+        echo "$name: installing..."
+        curl -sf -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/install" >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "$name: install failed"
+            return 1
+        fi
+        sleep 3
+    fi
+
+    echo "$name: starting..."
+    curl -sf -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/start" >/dev/null 2>&1 || true
+    sleep 5
+    echo "$name: done"
+}
+
+if [ "$INSTALL_OLLAMA" = "True" ] || [ "$INSTALL_OLLAMA" = "true" ]; then
+    echo "=== Installing Ollama Add-on ==="
+    install_addon "https://github.com/alexbelgium/hassio-addons" "local_ollama" "Ollama"
+fi
+
+if [ "$INSTALL_VOICE" = "True" ] || [ "$INSTALL_VOICE" = "true" ]; then
+    echo "=== Installing Voice Add-ons ==="
+    install_addon "" "core_whisper" "Whisper (STT)"
+    install_addon "" "core_piper" "Piper (TTS)"
+    install_addon "" "core_openwakeword" "openWakeWord"
+fi
 
 # Auto-detect Ollama add-on if URL not set
 if [ -z "$OLLAMA_URL" ]; then

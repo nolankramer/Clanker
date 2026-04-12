@@ -24,6 +24,8 @@ panel_title: "Clanker"
 
 # HA integration — gives us SUPERVISOR_TOKEN and API access
 homeassistant_api: true
+hassio_api: true
+hassio_role: manager
 auth_api: true
 
 # Map HA config dir so we can install the custom component
@@ -33,6 +35,8 @@ map:
 
 # User-configurable options (shown in HA add-on settings UI)
 options:
+  install_ollama_addon: false
+  install_voice_addons: false
   anthropic_api_key: ""
   openai_api_key: ""
   ollama_url: ""
@@ -42,6 +46,8 @@ options:
   log_level: "INFO"
 
 schema:
+  install_ollama_addon: "bool"
+  install_voice_addons: "bool"
   anthropic_api_key: "str?"
   openai_api_key: "str?"
   ollama_url: "str?"
