@@ -39,36 +39,38 @@ install_addon() {
 
     echo "$name: checking status (slug: $slug)..."
 
-    # Check if already installed
+    # Check if already running
     local info_resp
     info_resp=$(curl -s -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/info" 2>&1) || true
-    local status
-    status=$(echo "$info_resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('state',''))" 2>/dev/null || echo "not_installed")
+    local state
+    state=$(echo "$info_resp" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('data',{}).get('state',''))" 2>/dev/null || echo "")
+    local installed
+    installed=$(echo "$info_resp" | python3 -c "import json,sys; d=json.load(sys.stdin); print('yes' if d.get('data',{}).get('version') else 'no')" 2>/dev/null || echo "no")
 
-    if [ "$status" = "started" ]; then
+    if [ "$state" = "started" ]; then
         echo "$name: already running"
         return 0
     fi
 
     # Add repo if needed
-    if [ -n "$repo" ]; then
+    if [ -n "$repo" ] && [ "$installed" = "no" ]; then
         echo "$name: adding repository $repo..."
-        local repo_resp
-        repo_resp=$(curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
-            -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" 2>&1)
-        echo "$name: repo response: $repo_resp"
+        curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+            -d "{\"repository\": \"$repo\"}" "$SUPERVISOR_API/store/repositories" 2>&1 || true
         echo "$name: waiting for store refresh..."
         sleep 10
     fi
 
-    if [ "$status" = "not_installed" ] || [ -z "$status" ]; then
+    # Install if not installed
+    if [ "$installed" = "no" ]; then
         echo "$name: installing (this may take a few minutes)..."
         local install_resp
         install_resp=$(curl -s -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/install" 2>&1)
         echo "$name: install response: $install_resp"
-        sleep 5
+        sleep 10
     fi
 
+    # Start
     echo "$name: starting..."
     local start_resp
     start_resp=$(curl -s -X POST -H "$AUTH_HEADER" "$SUPERVISOR_API/addons/$slug/start" 2>&1)
@@ -79,7 +81,7 @@ install_addon() {
 
 if [ "$INSTALL_OLLAMA" = "True" ] || [ "$INSTALL_OLLAMA" = "true" ]; then
     echo "=== Installing Ollama Add-on ==="
-    install_addon "https://github.com/alexbelgium/hassio-addons" "local_ollama" "Ollama"
+    install_addon "https://github.com/SirUli/homeassistant-ollama-addon" "f89781a3_ollama" "Ollama"
 fi
 
 if [ "$INSTALL_VOICE" = "True" ] || [ "$INSTALL_VOICE" = "true" ]; then
