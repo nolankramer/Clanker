@@ -19,8 +19,8 @@ read_opt() {
         "$OPTIONS_FILE" "$1" "$2"
 }
 
-INSTALL_OLLAMA=$(read_opt install_ollama_addon "False")
-INSTALL_VOICE=$(read_opt install_voice_addons "False")
+INSTALL_OLLAMA=$(read_opt "Install Ollama add-on" "False")
+INSTALL_VOICE=$(read_opt "Install voice add-ons (Whisper, Piper, Wake Word)" "False")
 ANTHROPIC_KEY=$(read_opt anthropic_api_key "")
 OPENAI_KEY=$(read_opt openai_api_key "")
 OLLAMA_URL=$(read_opt ollama_url "")
@@ -149,4 +149,13 @@ echo "=== Starting Clanker ==="
 echo "Provider: ${DEFAULT_PROVIDER} | Ollama: ${OLLAMA_URL:-not found}"
 
 cd /app
+
+# Start the web UI on the Ingress port (background)
+python3 -c "
+from clanker.setup.web import run_server
+run_server(port=8471)
+" &
+echo "Web UI started on port 8471 (Ingress)"
+
+# Start Clanker main process
 exec python3 -m clanker.main

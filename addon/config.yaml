@@ -35,8 +35,8 @@ map:
 
 # User-configurable options (shown in HA add-on settings UI)
 options:
-  install_ollama_addon: false
-  install_voice_addons: false
+  "Install Ollama add-on": false
+  "Install voice add-ons (Whisper, Piper, Wake Word)": false
   anthropic_api_key: ""
   openai_api_key: ""
   ollama_url: ""
@@ -46,8 +46,8 @@ options:
   log_level: "INFO"
 
 schema:
-  install_ollama_addon: "bool"
-  install_voice_addons: "bool"
+  "Install Ollama add-on": "bool"
+  "Install voice add-ons (Whisper, Piper, Wake Word)": "bool"
   anthropic_api_key: "str?"
   openai_api_key: "str?"
   ollama_url: "str?"
