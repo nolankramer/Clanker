@@ -3,7 +3,6 @@ description: "LLM-powered smart home assistant — voice control, camera vision,
 version: "0.1.1"
 slug: "clanker"
 url: "https://github.com/nolankramer/clanker"
-image: "ghcr.io/nolankramer/clanker"
 arch:
   - amd64
   - aarch64
