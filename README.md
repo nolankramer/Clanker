@@ -89,10 +89,10 @@ Clanker is a self-hosted Python service that adds a brain, memory, vision reason
 - **Announcement router** — Occupancy-aware TTS delivery, quiet hours, priority-based routing.
 
 ### Setup & Deployment
+- **HA Add-on** — One-click install from HA's app store. Auto-configures token, component, and config.
 - **Setup wizards** — CLI and browser-based, with HA auto-discovery, connection testing, entity discovery, and config validation.
-- **Ollama auto-setup** — Detects/installs Ollama, pulls recommended models, applies TTFT optimizations (flash attention, keep_alive, KV cache quantization).
-- **Three deployment modes** — HA Add-on (one-click), remote SSH + Docker, or local.
-- **Pre-built OS images** — Flash to SD/USB for mini PCs and Raspberry Pi 5. First boot launches the web wizard.
+- **Ollama auto-setup** — Cross-platform install (Windows/Mac/Linux), model pulling, TTFT optimizations.
+- **Pre-built OS images** — Flash to SD/USB for dedicated hardware. First boot launches the web wizard.
 - **CI/CD** — GitHub Actions: test matrix (3.11/3.12/3.13), lint, Docker image published to GHCR.
 - **Identity verification** — Telegram chat ID confirmation + SMS code verification. Unverified messages silently dropped.
 
@@ -106,64 +106,45 @@ See `docs/safety.md` for the full safety model.
 
 ## Install
 
-### Pre-built OS Image (easiest — no Linux experience needed)
+### Path 1: HA Add-on (recommended for most users)
 
-> See the **[Hardware Guide](docs/hardware.md)** for reference
-> configurations if you need to pick hardware. (Still untested —
-> contributions welcome.)
+Already have Home Assistant? Install Clanker as an add-on in 30 seconds:
 
-1. Download the image for your hardware from [Releases](https://github.com/nolankramer/clanker/releases):
-   - `clanker-x86_64-*.img.gz` for Intel mini PCs
-   - `clanker-arm64-*.img.gz` for Raspberry Pi 5
-2. Flash to SD card or USB with [Balena Etcher](https://etcher.balena.io/)
-3. Plug in and power on
-4. Open **http://clanker.local** from your phone or laptop
-5. Walk through the setup wizard — done
+1. In HA: **Settings → Apps → ⋮** (top-right) **→ Repositories**
+2. Add `https://github.com/nolankramer/clanker`
+3. Find **Clanker** in the app store → **Install**
+4. Configure API keys in the add-on settings → **Start**
 
-### One-liner (Linux/Mac)
+The add-on auto-configures everything — HA token, custom component, config files. No manual setup needed.
 
+### Path 2: Standalone Install (any machine)
+
+Run Clanker on your own machine (PC, NUC, server) alongside or separate from HA.
+
+**Linux/Mac:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nolankramer/clanker/main/install.sh | bash
 ```
 
-### One-liner (Windows PowerShell)
-
+**Windows (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/nolankramer/clanker/main/install.ps1 | iex
 ```
 
-Both install scripts clone the repo, install [uv](https://docs.astral.sh/uv/), install dependencies, and launch the setup wizard. The wizard handles everything — API keys, config files, Ollama setup, voice pipeline. No manual file editing needed.
-
-### Setup Wizard
-
-```bash
-clanker-setup           # Interactive CLI wizard
-clanker-setup --web     # Browser-based wizard at localhost:8471
-```
-
-The wizard auto-discovers HA, tests connections, discovers entities, installs and configures Ollama, sets up voice pipeline and notifications, and validates everything before saving.
-
-### Docker
-
+**Docker:**
 ```bash
 docker pull ghcr.io/nolankramer/clanker:latest
 ```
 
-Or build locally:
+All methods launch a setup wizard that auto-discovers HA, configures LLM providers, and sets up voice/notifications. No manual file editing.
 
-```bash
-git clone https://github.com/nolankramer/clanker && cd clanker
-cp .env.example .env && cp config/clanker.yaml.example config/clanker.yaml
-docker compose up -d
-```
+### Path 3: Flash an Image (start from scratch)
 
-### HA Add-on
+For dedicated hardware with no existing OS. See the **[Hardware Guide](docs/hardware.md)** for what to buy.
 
-1. In HA: Settings → Add-ons → Add-on Store → ⋮ → Repositories
-2. Add `https://github.com/nolankramer/clanker`
-3. Install Clanker, configure API keys, start
-
-The add-on auto-configures everything — no manual token or config files needed.
+1. Download from [Releases](https://github.com/nolankramer/clanker/releases): `clanker-x86_64-*.img.gz` or `clanker-arm64-*.img.gz`
+2. Flash with [Balena Etcher](https://etcher.balena.io/)
+3. Boot → open **http://clanker.local** → setup wizard
 
 ## Voice Pipeline
 

@@ -610,66 +610,48 @@
   <h2>Deployment</h2>
   <p class="desc">Where should Clanker run?</p>
 
-  <div class="toggle-row" onclick="selectDeploy('local')" style="cursor:pointer">
-    <span class="toggle-label">
-      <strong>Local</strong><br>
-      <small>Run on this machine alongside your dev setup</small>
-    </span>
-    <input type="radio" name="deploy" value="local" checked id="deploy-local">
-  </div>
-
   <div class="toggle-row" onclick="selectDeploy('addon')" style="cursor:pointer">
     <span class="toggle-label">
       <strong>HA Add-on</strong> <span style="color:var(--green);font-size:0.8rem">recommended</span><br>
-      <small>Install directly on your HA server (HA OS / Supervised)</small>
+      <small>Install on your HA server. Auto-configures everything.</small>
     </span>
-    <input type="radio" name="deploy" value="addon" id="deploy-addon">
+    <input type="radio" name="deploy" value="addon" checked id="deploy-addon">
   </div>
 
-  <div class="toggle-row" onclick="selectDeploy('ssh')" style="cursor:pointer">
+  <div class="toggle-row" onclick="selectDeploy('local')" style="cursor:pointer">
     <span class="toggle-label">
-      <strong>Remote Server (SSH)</strong><br>
-      <small>Deploy via SSH + Docker to any server</small>
+      <strong>Local / Docker</strong><br>
+      <small>Run on this machine (for development or separate server)</small>
     </span>
-    <input type="radio" name="deploy" value="ssh" id="deploy-ssh">
+    <input type="radio" name="deploy" value="local" id="deploy-local">
   </div>
 
-  <!-- Add-on instructions -->
-  <div id="addon-instructions" style="display:none;margin-top:1rem;">
-    <div class="provider-section">
-      <h3 style="color:var(--green)">HA Add-on Install Steps</h3>
+  <!-- Add-on instructions (shown by default) -->
+  <div id="addon-instructions" style="margin-top:1rem;">
+    <div class="provider-section" style="border-color:var(--green)">
+      <h3 style="color:var(--green)">HA Add-on Install</h3>
       <div style="font-size:0.9rem;line-height:1.8;color:var(--text-dim)">
-        1. In HA: <strong>Settings &rarr; Add-ons &rarr; Add-on Store</strong><br>
-        2. Click <strong>&hellip;</strong> (top-right) &rarr; <strong>Repositories</strong><br>
-        3. Add: <code style="color:var(--accent)">https://github.com/nolankramer/clanker</code><br>
-        4. Find <strong>Clanker</strong> in the store and click <strong>Install</strong><br>
-        5. Configure your API keys in the add-on settings<br>
-        6. Click <strong>Start</strong>
+        1. In HA: <strong>Settings &rarr; Apps &rarr; &#8942;</strong> (top-right) &rarr; <strong>Repositories</strong><br>
+        2. Add: <code style="color:var(--accent);cursor:pointer" onclick="navigator.clipboard.writeText('https://github.com/nolankramer/clanker')">https://github.com/nolankramer/clanker</code> (click to copy)<br>
+        3. Find <strong>Clanker</strong> in the app store and click <strong>Install</strong><br>
+        4. Configure your API keys in the add-on settings<br>
+        5. Click <strong>Start</strong>
       </div>
       <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-dim)">
-        The add-on auto-installs the custom component, configures HA, and gets the auth token automatically. No manual setup needed.
+        The add-on auto-installs the HA component, generates config,
+        and gets the auth token automatically. No manual setup needed.
       </p>
     </div>
   </div>
 
-  <!-- SSH deploy -->
-  <div id="ssh-deploy" style="display:none;margin-top:1rem;">
+  <!-- Local instructions -->
+  <div id="local-instructions" style="display:none;margin-top:1rem;">
     <div class="provider-section">
-      <h3>SSH Deployment</h3>
-      <div class="field">
-        <label>SSH Target (e.g. user@192.168.1.50)</label>
-        <input id="ssh-host" type="text" placeholder="user@hostname">
-      </div>
-      <div class="field">
-        <label>HA Config Path on Remote</label>
-        <input id="ssh-ha-path" type="text" value="/config">
-      </div>
-      <button class="btn btn-test" onclick="testSSH()">Test SSH</button>
-      <div class="status" id="ssh-status"></div>
-      <div style="margin-top:0.75rem">
-        <button class="btn btn-primary" onclick="deploySSH()" id="ssh-deploy-btn" disabled>Deploy via SSH</button>
-      </div>
-      <div class="status" id="ssh-deploy-status"></div>
+      <h3>Local / Docker</h3>
+      <p style="font-size:0.9rem;color:var(--text-dim);line-height:1.6">
+        Config will be saved to <code>config/clanker.yaml</code> and <code>.env</code> on the next step.<br>
+        Run with: <code style="color:var(--accent)">python -m clanker.main</code> or <code style="color:var(--accent)">docker compose up -d</code>
+      </p>
     </div>
   </div>
 
@@ -1062,33 +1044,9 @@ function renderEntityList(containerId, items) {
 function selectDeploy(mode) {
   document.getElementById('deploy-local').checked = (mode === 'local');
   document.getElementById('deploy-addon').checked = (mode === 'addon');
-  document.getElementById('deploy-ssh').checked = (mode === 'ssh');
   document.getElementById('addon-instructions').style.display = (mode === 'addon') ? 'block' : 'none';
-  document.getElementById('ssh-deploy').style.display = (mode === 'ssh') ? 'block' : 'none';
+  document.getElementById('local-instructions').style.display = (mode === 'local') ? 'block' : 'none';
 }
-
-async function testSSH() {
-  setStatus('ssh-status', 'loading', 'Testing SSH...');
-  const r = await api('/api/deploy/test-ssh', {host: document.getElementById('ssh-host').value});
-  if (r.ok) {
-    const caps = r.capabilities || {};
-    let msg = 'Connected';
-    if (caps.docker) msg += ' | Docker ✓';
-    if (caps.ha_config) msg += ' | HA config ✓';
-    setStatus('ssh-status', 'ok', msg);
-    document.getElementById('ssh-deploy-btn').disabled = false;
-    if (caps.ha_config_path) document.getElementById('ssh-ha-path').value = caps.ha_config_path;
-  } else {
-    setStatus('ssh-status', 'err', r.message);
-  }
-}
-
-async function deploySSH() {
-  setStatus('ssh-deploy-status', 'loading', 'Deploying... this may take a few minutes');
-  const r = await api('/api/deploy/ssh', {
-    host: document.getElementById('ssh-host').value,
-    ha_config_path: document.getElementById('ssh-ha-path').value,
-  });
   setStatus('ssh-deploy-status', r.ok ? 'ok' : 'err', r.message);
 }
 

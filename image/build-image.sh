@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Build a Clanker appliance OS image.
 #
-# Takes a base Ubuntu cloud image, mounts it, runs the provisioner
-# inside it, and outputs a flashable .img.gz.
+# Creates a flashable Ubuntu-based image with Docker, HA, Ollama,
+# and Clanker pre-installed. First boot launches the web setup wizard
+# at http://clanker.local.
+#
+# For HA OS users: use the HA Add-on instead (no custom image needed).
+# This image is for users who want a dedicated Clanker appliance
+# running on bare metal (mini PC, NUC, etc.).
 #
 # Usage:
 #   sudo ./build-image.sh                     # x86_64 (mini PCs)
 #   sudo ./build-image.sh --arch arm64        # Raspberry Pi 5
-#
-# Requirements:
-#   - Linux host with root access
-#   - qemu-user-static (for cross-arch builds)
-#   - wget, parted, losetup, mount, chroot
 #
 # Output:
 #   image/output/clanker-<arch>-<date>.img.gz
@@ -45,29 +45,23 @@ OUTPUT_FILE="$OUTPUT_DIR/clanker-${ARCH}-${DATE}.img"
 
 echo "=== Clanker Image Builder ==="
 echo "Architecture: $ARCH"
-echo "Base image:   $BASE_URL"
 echo "Output:       $OUTPUT_FILE.gz"
-echo ""
 
-# Must be root
 if [ "$(id -u)" -ne 0 ]; then
     echo "Must be run as root (use sudo)"
     exit 1
 fi
 
-# Check dependencies
-for cmd in wget qemu-img losetup mount chroot parted; do
+for cmd in wget qemu-img losetup mount chroot; do
     if ! command -v "$cmd" &>/dev/null; then
-        echo "Missing: $cmd — install it first"
+        echo "Missing: $cmd"
         exit 1
     fi
 done
 
-# Cross-arch support
 if [ "$ARCH" = "arm64" ] && [ "$(uname -m)" != "aarch64" ]; then
     if ! command -v qemu-aarch64-static &>/dev/null; then
         echo "Cross-arch build requires qemu-user-static"
-        echo "Install: apt-get install qemu-user-static binfmt-support"
         exit 1
     fi
 fi
@@ -81,32 +75,22 @@ if [ ! -f "$BASE_IMG" ]; then
     wget -q --show-progress -O "$BASE_IMG" "$BASE_URL"
 fi
 
-# Convert qcow2 → raw and resize
+# Convert and resize
 echo "Converting and resizing image..."
 qemu-img convert -f qcow2 -O raw "$BASE_IMG" "$OUTPUT_FILE"
 qemu-img resize -f raw "$OUTPUT_FILE" "$IMAGE_SIZE"
 
-# Fix partition table to use full disk
 echo "Expanding partition..."
-# Grow the last partition to fill the disk
-PART_NUM=$(sfdisk -l "$OUTPUT_FILE" 2>/dev/null | grep -c "^${OUTPUT_FILE}")
-if [ "$PART_NUM" -eq 0 ]; then
-    PART_NUM=1
-fi
-echo ", +" | sfdisk -N "$PART_NUM" "$OUTPUT_FILE" 2>/dev/null || true
+echo ", +" | sfdisk -N 1 "$OUTPUT_FILE" 2>/dev/null || true
 
-# Mount the image
+# Mount
 echo "Mounting image..."
 LOOP=$(losetup --find --show --partscan "$OUTPUT_FILE")
-
-# Wait for kernel to detect partitions
 udevadm settle 2>/dev/null || sleep 2
 
-# Find the right partition (usually p1 or p15 for cloud images)
 PART=""
-for p in "${LOOP}p1" "${LOOP}p2" "${LOOP}p15"; do
+for p in "${LOOP}p1" "${LOOP}p2"; do
     if [ -b "$p" ]; then
-        # Check if it's an ext4 filesystem
         FSTYPE=$(blkid -s TYPE -o value "$p" 2>/dev/null || true)
         if [ "$FSTYPE" = "ext4" ]; then
             PART="$p"
@@ -116,16 +100,11 @@ for p in "${LOOP}p1" "${LOOP}p2" "${LOOP}p15"; do
 done
 
 if [ -z "$PART" ]; then
-    echo "ERROR: Could not find ext4 partition in image"
-    echo "Available partitions:"
-    ls -la "${LOOP}"p* 2>/dev/null || echo "  none"
+    echo "ERROR: Could not find ext4 partition"
     losetup -d "$LOOP"
     exit 1
 fi
 
-echo "Using partition: $PART"
-
-# Resize filesystem to fill the image
 e2fsck -f -y "$PART" 2>/dev/null || true
 resize2fs "$PART" 2>/dev/null || true
 
@@ -133,22 +112,21 @@ MOUNTPOINT="$WORK_DIR/mnt"
 mkdir -p "$MOUNTPOINT"
 mount "$PART" "$MOUNTPOINT"
 
-# Copy provisioner into the image
+# Copy provisioner
 echo "Copying provisioner..."
 mkdir -p "$MOUNTPOINT/opt/clanker-setup"
 cp "$SCRIPT_DIR/provision.sh" "$MOUNTPOINT/opt/clanker-setup/provision.sh"
 chmod +x "$MOUNTPOINT/opt/clanker-setup/provision.sh"
 
-# Set up first-boot provisioning via cloud-init
+# Cloud-init first boot
 mkdir -p "$MOUNTPOINT/var/lib/cloud/scripts/per-once"
 cat > "$MOUNTPOINT/var/lib/cloud/scripts/per-once/clanker-provision.sh" << 'CLOUDINIT'
 #!/bin/bash
-# First-boot: run the Clanker provisioner
 exec /opt/clanker-setup/provision.sh 2>&1 | tee /var/log/clanker-provision.log
 CLOUDINIT
 chmod +x "$MOUNTPOINT/var/lib/cloud/scripts/per-once/clanker-provision.sh"
 
-# Set default user (clanker/clanker) for login
+# Default user
 mkdir -p "$MOUNTPOINT/etc/cloud/cloud.cfg.d"
 cat > "$MOUNTPOINT/etc/cloud/cloud.cfg.d/99-clanker.cfg" << 'CLOUDCFG'
 system_info:
@@ -158,11 +136,7 @@ system_info:
     plain_text_passwd: clanker
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
-
-# Set hostname
 hostname: clanker
-
-# Grow the filesystem on first boot
 growpart:
   mode: auto
   devices: [/]
@@ -170,12 +144,10 @@ resize_rootfs: true
 CLOUDCFG
 
 # Cleanup
-echo "Unmounting..."
 sync
 umount "$MOUNTPOINT"
 losetup -d "$LOOP"
 
-# Compress
 echo "Compressing image..."
 gzip -f "$OUTPUT_FILE"
 
@@ -184,5 +156,5 @@ echo "=== Done ==="
 echo "Image: ${OUTPUT_FILE}.gz"
 echo "Size:  $(du -sh "${OUTPUT_FILE}.gz" | cut -f1)"
 echo ""
-echo "Flash with: balena etcher, dd, or Raspberry Pi Imager"
-echo "  dd if=${OUTPUT_FILE}.gz of=/dev/sdX bs=4M status=progress"
+echo "Flash with Balena Etcher or:"
+echo "  gunzip -c ${OUTPUT_FILE}.gz | sudo dd of=/dev/sdX bs=4M status=progress"

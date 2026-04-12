@@ -3,6 +3,7 @@ description: "LLM-powered smart home assistant — voice control, camera vision,
 version: "0.1.1"
 slug: "clanker"
 url: "https://github.com/nolankramer/clanker"
+image: "ghcr.io/nolankramer/clanker"
 arch:
   - amd64
   - aarch64
@@ -16,7 +17,7 @@ ports:
 ports_description:
   8472/tcp: "Conversation API"
 
-# Ingress — web UI accessible from HA sidebar
+# Ingress — setup wizard accessible from HA sidebar
 ingress: true
 ingress_port: 8471
 panel_icon: "mdi:robot"
@@ -35,23 +36,17 @@ map:
 options:
   anthropic_api_key: ""
   openai_api_key: ""
-  ollama_url: "http://localhost:11434"
+  ollama_url: ""
   ollama_model: "llama3.2"
-  default_provider: "anthropic"
-  vision_provider: "anthropic"
+  default_provider: "ollama"
   tts_engine: "tts.piper"
-  frigate_enabled: false
-  frigate_url: "http://localhost:5000"
   log_level: "INFO"
 
 schema:
   anthropic_api_key: "str?"
   openai_api_key: "str?"
-  ollama_url: "url"
+  ollama_url: "str?"
   ollama_model: "str"
   default_provider: "list(anthropic|ollama|openai)"
-  vision_provider: "list(anthropic|ollama|openai)"
   tts_engine: "str"
-  frigate_enabled: "bool"
-  frigate_url: "url?"
   log_level: "list(DEBUG|INFO|WARNING|ERROR)"

@@ -12,6 +12,9 @@ COPY clanker/ clanker/
 # Install package + dependencies
 RUN uv pip install --system --no-cache .
 
+# Copy HA custom component (used by add-on run.sh)
+COPY ha_component/ ha_component/
+
 # Create data directories
 RUN mkdir -p data config/memory
 
