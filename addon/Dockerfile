@@ -17,7 +17,7 @@ RUN git clone --depth 1 https://github.com/nolankramer/clanker.git /tmp/clanker 
     cp /tmp/clanker/pyproject.toml /tmp/clanker/README.md /app/ && \
     cp -r /tmp/clanker/clanker /app/clanker && \
     cp -r /tmp/clanker/ha_component /app/ha_component && \
-    uv pip install --system --no-cache /app && \
+    uv pip install --system --no-cache --index-strategy unsafe-best-match /app && \
     rm -rf /tmp/clanker
 
 # Copy run script
